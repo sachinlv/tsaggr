@@ -32,7 +32,7 @@ predict <- function(indx) {
   }
 
   indx.start <<- indx
-  indx.end <<- indx + (window.size * data.len.day)
+  indx.end <<- indx + (window.size * data.len.day) - 1
   data.train <<- c()
   data.test <<- c()
   data.out <<- c()
@@ -62,11 +62,11 @@ predict <- function(indx) {
                       learningrate=1,
                       algorithm="rprop+", #'rprop-', 'sag', 'slr', 'rprop+'
                       #lifesign="none",
-                      err.fct="sse",
+                      err.fct="ce",
                       act.fct="logistic",
                       #exclude = NULL,
                       #constant.weights = NULL,
-                      linear.output=FALSE #If true, act.fct is not applied to the o/p of neuron. So it will be only integartion function
+                      linear.output=TRUE #If true, act.fct is not applied to the o/p of neuron. So it will be only integartion function
                     )
 
     data.train <<- c(data.train, data.mat.train[,window.size])
@@ -81,9 +81,7 @@ predict <- function(indx) {
     if(count == 10){
       break
     }
-
-    plot.nn(out)
-
+    #plot.nn(out)
   }
 }
 

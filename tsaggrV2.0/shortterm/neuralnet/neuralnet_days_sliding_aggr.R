@@ -11,18 +11,19 @@ require(ftsa)
 sites.count <- 10
 indxcombicnt <- 10 #no. of combination
 aggr.mat.size <- sites.count/2
-row.size <- 52560
-row.size.day <<- 144
+data.len <- 52560
+data.len.day <<- 144
 mat.size <<- 365
 window.size <- 30
 train.data.percent <- 0.7
 indxseq <- c(seq(1,sites.count))
+slide.count <- mat.size-window.size+1
 
-powdata <<- ff(NA, dim=c(row.size, sites.count), vmode="double")
-aggrdata <<- ff(NA, dim=c(row.size, aggr.mat.size), vmode="double")
-train.data <<- ff(NA, dim=c(row.size.day*train.data.percent, mat.size-window.size+1), vmode="double")
-test.data <<- ff(NA, dim=c(row.size.day*(1-train.data.percent), mat.size-window.size+1), vmode="double")
-output <<- ff(NA, dim=c(row.size.day*(1-train.data.percent), mat.size-window.size+1), vmode="double")
+powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
+aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
+train.data <<- c()
+test.data <<- c()
+output <<- c()
 indxcombimat <<- ff(NA, dim=c(aggr.mat.size,indxcombicnt),vmode="integer")
 
 drv = dbDriver("MySQL")
@@ -33,13 +34,12 @@ tablelist_statement = paste("SELECT TABLE_NAME FROM information_schema.TABLES ",
 tables <- dbGetQuery(con, statement=tablelist_statement)
 tables <- data.frame(tables)
 
-
 loaddata <- function(){
   colindx <- 1
   for(indx in seq(1,sites.count)){
     tab <- tables[indx,]
     print(paste("Loading from table :: ", tab))
-    query <- paste(" select pow from ", tab, " WHERE (mesdt >= 20060101 && mesdt < 20070101) LIMIT ", row.size, ";")
+    query <- paste(" select pow from ", tab, " WHERE (mesdt >= 20060101 && mesdt < 20070101) LIMIT ", data.len, ";")
     data06 <- data.frame(dbGetQuery(con,statement=query), check.names=FALSE)
     powdata[,indx] <<- as.double(data06[,1])
   }
@@ -63,27 +63,43 @@ gen.aggrdata <- function(seq1, seq2){
 }
 
 
-predict <- function(indx) {
-  data.set <- matrix(aggrdata[,indx], nrow=row.size.day, ncol=mat.size, byrow=FALSE)
-  for(indx in seq(1 ,mat.size-window.size+1)){
-    data.set.indx <- c(seq(indx, indx+window.size-1))
-    data.mat <- as.matrix(data.set[,data.set.indx])
+predict <- function(siteno, indx) {
+  if(indx < 1 || indx >= data.len){
+    print("Enter indx Greater than 0 and less than the data size")
+    return
+  }
+
+  data.normalized <- normalizeData(as.vector(aggrdata[,siteno]),type="0_1")
+  #data.set <- matrix(normalized.data, nrow=data.len.day, ncol=mat.size, byrow=FALSE)
+  data.set <- as.vector(data.normalized[,1])
+  indx.start <<- indx
+  indx.end <<- indx.start + (window.size * data.len.day) - 1
+  data.train <<- c()
+  data.test <<- c()
+  data.out <<- c()
+  count <- 0
+
+  while(indx.end <= data.len){
+    data.mat <- matrix(data.set[indx.start:indx.end], nrow=data.len.day, ncol=window.size, byrow=FALSE)
     colnames(data.mat) <- paste("d",c(1:window.size), sep="")
-    formula.set <- colnames(data.mat)
-    train.dataset.indx <- row.size.day *  train.data.percent
+
+    train.dataset.indx <- floor(data.len.day *  train.data.percent)
     test.dataset.indx <- train.dataset.indx + 1
+    window.slide <- data.len.day - train.dataset.indx
     data.mat.train <- data.mat[1:train.dataset.indx,]
-    data.mat.test <- data.mat[test.dataset.indx:row.size.day,]
+    data.mat.test <- data.mat[test.dataset.indx:data.len.day,]
+
+    formula.set <- colnames(data.mat)
     y = formula.set[window.size]
     x = formula.set[1:window.size-1]
     f = as.formula(paste(y, " ~ ", paste(x, collapse="+")))
-    #print(f)
+
     out <<- neuralnet(f,
                       data.mat.train,
                       hidden=window.size,
-                      rep=20,
-                      stepmax = 5000,
-                      threshold=0.01,
+                      rep=10,
+                      stepmax = 2000,
+                      threshold=0.005,
                       learningrate=1,
                       algorithm="rprop+", #'rprop-', 'sag', 'slr'
                       lifesign="none",
@@ -93,15 +109,25 @@ predict <- function(indx) {
                       constant.weights = NULL,
                       linear.output=TRUE #If true, act.fct is not applied to the o/p of neuron. So it will be only integartion function
     )
-    plot.nn(out)
-    train.data[, indx] <<- data.mat.train[,window.size]
-    test.data[, indx] <<- data.mat.test[,window.size]
-    pred <- compute(out, data.mat.test[,1:window.size-1])$net.result
 
-    output[,indx] <<- as.double(pred)
-    plot(pred, type='l')
-    break
+
+    data.train <<- c(data.train, data.mat.train[,window.size])
+    data.test <<- c(data.test, data.mat.test[,window.size])
+
+    pred <- compute(out, data.mat.test[,1:window.size-1])$net.result
+    data.out <<- c(data.out, pred)
+
+    indx.start <<- indx.start + window.slide
+    indx.end <<- indx.start + (window.size * data.len.day)
+    count <- count + 1
+    if(count == 10){
+      break
+    }
   }
+
+  train.data <<- cbind(train.data, data.train) #data.mat.train[,window.size]
+  test.data <<-  cbind(test.data, data.test) #data.mat.test[,window.size]
+  output <<- cbind(output, data.out)
 }
 
 
@@ -114,7 +140,7 @@ predict_for_combination <- function(){
     mat.indx2 <- as.vector(indxseq[is.na(pmatch(indxseq,mat.indx1))])
     gen.aggrdata(mat.indx1, mat.indx2)
 
-    predict(i)
+    predict(i,1)
     break
   }
 }
@@ -122,14 +148,19 @@ predict_for_combination <- function(){
 predict_for_combination()
 generate.seq.matrix()
 
-
-
-x1 = train.data[,1]
-x2 = test.data[,1]
-y = output[,1]
+#plotting
+length(test.data)
+x1 = train.data[441:880]
+x2 = test.data[441:880]
+y = output[441:880]
 length(y)
-plot(x2, type="l")
+plot(y, type="l")
 
-dataToPlot = data.frame(seq(1,43),x2, y)
+dataToPlot = data.frame(seq(1,440),x2, y)
 Line <- gvisLineChart(dataToPlot)
 plot(Line)
+
+
+#error measure
+err <- error(forecast=y, true=x2,method="mape")
+err
