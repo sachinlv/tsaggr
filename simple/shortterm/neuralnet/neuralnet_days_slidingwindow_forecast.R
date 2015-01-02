@@ -7,47 +7,58 @@ require(ppls)
 require(RSNNS)
 require(ftsa)
 
-row.size <- 52560
-row.size.day <<- 144
+data.len <- 52560
+data.len.day <<- 144
 mat.size <<- 365
 window.size <- 10
 train.data.percent <- 0.7
-powdata <<- ff(NA, dim=row.size, vmode="double")
-train.data <<- ff(NA, dim=c(row.size.day*train.data.percent, mat.size-window.size+1), vmode="double")
-test.data <<- ff(NA, dim=c(row.size.day*(1-train.data.percent), mat.size-window.size+1), vmode="double")
-output <<- ff(NA, dim=c(row.size.day*(1-train.data.percent), mat.size-window.size+1), vmode="double")
+powdata <<- ff(NA, dim=data.len, vmode="double")
+#train.data <<- ff(NA, dim=c(data.len.day*train.data.percent, mat.size-window.size+1), vmode="double")
+#test.data <<- ff(NA, dim=c(data.len.day*(1-train.data.percent), mat.size-window.size+1), vmode="double")
+#output <<- ff(NA, dim=c(data.len.day*(1-train.data.percent), mat.size-window.size+1), vmode="double")
 
 query <- "select t.pow from onshore_SITE_07829 t where (t.mesdt >= 20060101 && t.mesdt < 20070101);"
 drv <- dbDriver("MySQL")
 con <- dbConnect(drv, host="localhost", dbname="eastwind", user="sachin", pass="password")
 powdata <<- data.frame(dbGetQuery(con, statement=query), check.names=FALSE)
-#powdata.normalized <<- normalize.vector(as.vector(powdata[,1]))
 powdata.normalized <<- normalizeData(as.vector(powdata[,1]),type="0_1")
-#data.set <- matrix(powdata[,1], nrow=row.size.day, ncol=mat.size, byrow=FALSE)
-data.set <<- matrix(powdata.normalized[,1], nrow=row.size.day, ncol=mat.size, byrow=FALSE)
-#summary(data.set)
+#data.set <<- matrix(powdata.normalized[,1], nrow=data.len.day, ncol=mat.size, byrow=FALSE)
+data.set <<- as.vector(powdata.normalized[,1])
 
-predict <- function() {
-  for(indx in seq(1 ,mat.size-window.size+1)){
-    print(paste("window no. : ", indx))
-    data.set.indx <- c(seq(indx, indx+window.size-1))
-    data.mat <- as.matrix(data.set[,data.set.indx])
+predict <- function(indx) {
+  if(indx < 1 || indx >= data.len){
+    print("Enter indx Greater than 0 and less than the data size")
+    return
+  }
+
+  indx.start <<- indx
+  indx.end <<- indx + (window.size * data.len.day)
+  data.train <<- c()
+  data.test <<- c()
+  data.out <<- c()
+  count <- 0
+
+  while(indx.end <= data.len){
+    data.mat <- matrix(data.set[indx.start:indx.end], nrow=data.len.day, ncol=window.size, byrow=FALSE)
     colnames(data.mat) <- paste("d",c(1:window.size), sep="")
-    formula.set <- colnames(data.mat)
-    train.dataset.indx <- row.size.day *  train.data.percent
+
+    train.dataset.indx <- floor(data.len.day *  train.data.percent)
     test.dataset.indx <- train.dataset.indx + 1
+    window.slide <- data.len.day - train.dataset.indx
     data.mat.train <- data.mat[1:train.dataset.indx,]
-    data.mat.test <- data.mat[test.dataset.indx:row.size.day,]
+    data.mat.test <- data.mat[test.dataset.indx:data.len.day,]
+
+    formula.set <- colnames(data.mat)
     y = formula.set[window.size]
     x = formula.set[1:window.size-1]
     f = as.formula(paste(y, " ~ ", paste(x, collapse="+")))
-    #print(f)
+
     out <<- neuralnet(f,
                       data.mat.train,
                       hidden=c(round(window.size/2), window.size,1),#window.size
                       rep=10,
                       stepmax = 2000,
-                      threshold=0.01,
+                      threshold=0.005,
                       learningrate=1,
                       algorithm="rprop+", #'rprop-', 'sag', 'slr', 'rprop+'
                       #lifesign="none",
@@ -58,13 +69,16 @@ predict <- function() {
                       linear.output=FALSE #If true, act.fct is not applied to the o/p of neuron. So it will be only integartion function
                     )
 
-    train.data[, indx] <<- data.mat.train[,window.size]
-    test.data[, indx] <<- data.mat.test[,window.size]
+    data.train <<- c(data.train, data.mat.train[,window.size])
+    data.test <<- c(data.test, data.mat.test[,window.size])
 
     pred <- compute(out, data.mat.test[,1:window.size-1])$net.result
-    output[,indx] <<- as.double(pred)
+    data.out <<- c(data.out, pred)
 
-    if(indx == 10){
+    indx.start <<- indx.start + window.slide
+    indx.end <<- indx.start + (window.size * data.len.day)
+    count <- count + 1
+    if(count == 10){
       break
     }
 
@@ -73,24 +87,19 @@ predict <- function() {
   }
 }
 
-predict()
-
-plot(test.data[,1], type='l')
-#plotting
-head(train.data[,1:11])
-x = data.set[,window.size]
-x1 = as.vector(train.data[,1:10])
-x2 = as.vector(test.data[,1:10])
-y = as.vector(output[,1:10])
+predict(1)
 
 #plotting
+x1 = data.train
+x2 = data.test
+y = data.out
+
 length(y)
 plot(y, type='l')
 plot(x1, type='l')
 plot(x2, type='l')
-length(y)
 
-dataToPlot = data.frame(seq(1,430),x2,y)
+dataToPlot = data.frame(seq(1,440),x2,y)
 Line <- gvisLineChart(dataToPlot)
 plot(Line)
 
