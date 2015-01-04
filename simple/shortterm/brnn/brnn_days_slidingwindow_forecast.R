@@ -4,31 +4,55 @@ require(ff)
 require(googleVis)
 require(Metrics)
 require(ppls)
+require(RSNNS)
 require(ftsa)
 
+sites.count <- 10
 data.len <- 52560
 data.len.day <<- 144
 mat.size <<- 365
 window.size <- 10
 train.data.percent <- 0.7
-powdata <<- ff(NA, dim=data.len, vmode="double")
+file.name <- "brnn_shortterm_simple.csv"
+file.path <- "/home/freak/Programming/Thesis/results/neuralnet_shortterm_simple/"
+
+powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
+powdata.normalized <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
+train.data <<- c()
+test.data <<- c()
+output <<- c()
 #train.data <<- ff(NA, dim=c(data.len.day*train.data.percent, mat.size-window.size+1), vmode="double")
 #test.data <<- ff(NA, dim=c(data.len.day*(1-train.data.percent), mat.size-window.size+1), vmode="double")
 #output <<- ff(NA, dim=c(data.len.day*(1-train.data.percent), mat.size-window.size+1), vmode="double")
 
-query <- "select t.pow from onshore_SITE_07829 t where (t.mesdt >= 20060101 && t.mesdt < 20070101);"
-drv <- dbDriver("MySQL")
-con <- dbConnect(drv, host="localhost", dbname="eastwind", user="sachin", pass="password")
-powdata <<- data.frame(dbGetQuery(con, statement=query), check.names=FALSE)
-powdata.normalized <<- normalizeData(as.vector(powdata[,1]),type="0_1")
-#data.set <<- matrix(powdata.normalized[,1], nrow=data.len.day, ncol=mat.size, byrow=FALSE)
-data.set <<- as.vector(powdata.normalized[,1])
+drv = dbDriver("MySQL")
+con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
+tablelist_statement = paste("SELECT TABLE_NAME FROM information_schema.TABLES ",
+                            "WHERE TABLE_SCHEMA = 'eastwind' AND",
+                            "TABLE_NAME LIKE 'onshore_SITE_%' "," LIMIT ",sites.count, ";")
+tables <<- dbGetQuery(con, statement=tablelist_statement)
+tables <<- data.frame(tables)
 
-predict <- function(indx) {
+
+loaddata <- function(){
+  for(indx in seq(1,sites.count)){
+    tab <- tables[indx,]
+    print(paste("Loading from table :: ", tab))
+    query <- paste(" select pow from ", tab, " WHERE (mesdt >= 20060101 && mesdt < 20070101) LIMIT ", data.len, ";")
+    data06 <- data.frame(dbGetQuery(con,statement=query), check.names=FALSE)
+    powdata[,indx] <<- as.double(data06[,1])
+    powdata.normalized[,indx] <<- normalizeData(as.vector(data06[,1]),type="0_1")
+  }
+}
+
+
+predict <- function(siteno,indx) {
   if(indx < 1 || indx >= data.len){
     print("Enter indx Greater than 0 and less than the data size")
     return
   }
+
+  data.set <<- as.vector(powdata.normalized[,siteno])
 
   indx.start <<- indx
   indx.end <<- indx.start + (window.size * data.len.day) - 1
@@ -38,6 +62,7 @@ predict <- function(indx) {
   count <- 0
 
   while(indx.end <= data.len){
+    print(paste("Site no: ", siteno, "Slide Count: ", count+1))
     data.mat <- matrix(data.set[indx.start:indx.end], nrow=data.len.day, ncol=window.size, byrow=FALSE)
     colnames(data.mat) <- paste("d",c(1:window.size), sep="")
 
@@ -74,19 +99,54 @@ predict <- function(indx) {
     indx.start <<- indx.start + window.slide
     indx.end <<- indx.start + (window.size * data.len.day) -1
     count <- count + 1
-
     if(count == 10){
       break
     }
   }
+
+  train.data <<- cbind(train.data, data.train) #data.mat.train[,window.size]
+  test.data <<-  cbind(test.data, data.test) #data.mat.test[,window.size]
+  output <<- cbind(output, data.out)
 }
 
-predict(1)
+predict.power <- function(){
+  slide.indx <- 1
+  loaddata()
+
+  for(site in seq(1:sites.count)){
+    predict(site,slide.indx)
+    break
+  }
+}
+
+prediction.error <- function(){
+  parm.count <- 5
+  err.data <<- matrix(,nrow=sites.count, ncol=parm.count, byrow=TRUE)
+  colnames(err.data) <<- c("site.id", "rmse", "mape", "sse", "mse")
+
+  for(site in seq(1:sites.count)){
+    site.name <- tables[site,]
+    test <- test.data[,site]
+    pred <- output[,site]
+    err.rmse <- error(forecast=pred, true=test,method="rmse")
+    err.mape <- error(forecast=pred, true=test,method="mape")
+    err.sse <- error(forecast=pred, true=test,method="sse")
+    err.mse <- error(forecast=pred, true=test,method="mse")
+    err.data[site,] <<- c(site.name, err.rmse, err.mape, err.sse, err.mse)
+    break
+  }
+  write.csv(err.data, file=paste(file.path,file.name))
+}
+
+predict.power()
+prediction.error()
+
+err.data
 
 #plotting
-x1 = data.train
-x2 = data.test
-y = data.out
+x1 = data.train[,1]
+x2 = data.test[,1]
+y = data.out[,1]
 length(x2)
 
 plot(y, type='l')

@@ -12,7 +12,7 @@ aggr.mat.size <- sites.count/2
 data.len <- 52560
 data.len.day <<- 144
 mat.size <<- 365
-window.size <- 30
+window.size <- 10
 train.data.percent <- 0.7
 indxseq <- c(seq(1,sites.count))
 slide.count <- mat.size-window.size+1
@@ -56,7 +56,7 @@ gen.aggrdata <- function(seq1, seq2){
     for(i in seq(1 ,aggr.mat.size)){
       indx1 <- seq1[i]
       indx2 <- seq2[i]
-          aggrdata[,i] <<- c(powdata[,indx1]) + c(powdata[,indx2])
+      aggrdata[,i] <<- c(powdata[,indx1]) + c(powdata[,indx2])
     }
 }
 
@@ -80,6 +80,7 @@ predict <- function(siteno, indx) {
 
   #for(indx in seq(1 ,mat.size-window.size+1)){
   while(indx.end <= data.len){
+      print(paste("Slide Count: ", count+1))
       data.mat <- matrix(data.set[indx.start:indx.end], nrow=data.len.day, ncol=window.size, byrow=FALSE)
       colnames(data.mat) <- paste("d",c(1:window.size), sep="")
 
@@ -128,6 +129,7 @@ predict <- function(siteno, indx) {
 
 
 predict_for_combination <- function(){
+  slide.indx <- 1
   loaddata()
   generate.seq.matrix()
 
@@ -135,9 +137,34 @@ predict_for_combination <- function(){
     mat.indx1 <- as.vector(indxcombimat[,i])
     mat.indx2 <- as.vector(indxseq[is.na(pmatch(indxseq,mat.indx1))])
     gen.aggrdata(mat.indx1, mat.indx2)
-    predict(i,1)
+
+    for(aggr.indx in seq(1,aggr.mat.size)){
+      predict(aggr.indx,slide.indx)
+      break
+    }
     break
   }
+}
+
+prediction.error <- function(){
+  parm.count <- 4
+  err.data <<- matrix(,nrow=sites.count, ncol=parm.count, byrow=TRUE)
+  #colnames(err.data) <<- c("site.id", "rmse", "mape", "sse", "mse")
+  colnames(err.data) <<- c("rmse", "mape", "sse", "mse")
+
+  for(site in seq(1:(indxcombicnt*aggr.mat.size))){
+    #site.name <- tables[site,]
+    test <- test.data[,site]
+    pred <- output[,site]
+    err.rmse <- error(forecast=pred, true=test,method="rmse")
+    err.mape <- error(forecast=pred, true=test,method="mape")
+    err.sse <- error(forecast=pred, true=test,method="sse")
+    err.mse <- error(forecast=pred, true=test,method="mse")
+    #err.data[site,] <<- c(site.name, err.rmse, err.mape, err.sse, err.mse)
+    err.data[site,] <<- c(err.rmse, err.mape, err.sse, err.mse)
+    break
+  }
+  write.csv(err.data, file=paste(file.path,file.name))
 }
 
 predict_for_combination()
@@ -145,14 +172,14 @@ generate.seq.matrix()
 
 
 #plotting
-x1 = as.vector(train.data[,1:10])
-x2 = as.vector(test.data[,1:10])
-y = as.vector(output[,1:10])
+x1 = train.data
+x2 = test.data
+y = output
 
 plot(y, type='l')
 plot(x1, type='l')
 plot(x2, type='l')
-length(x)
+length(x2)
 dataToPlot = data.frame(seq(1,430),x2,y)
 Line <- gvisLineChart(dataToPlot)
 plot(Line)
