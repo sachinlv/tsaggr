@@ -67,9 +67,9 @@ predict <- function(siteno, indx) {
     return
   }
 
-  data.normalized <- normalizeData(as.vector(aggrdata[,siteno]),type="0_1")
-  data.set <- as.vector(data.normalized[,1])
-  #data.set <- as.vector(aggrdata[,siteno])
+  #data.normalized <- normalizeData(as.vector(aggrdata[,siteno]),type="0_1")
+  #data.set <- as.vector(data.normalized[,1])
+  data.set <- as.vector(aggrdata[,siteno])
 
   indx.start <<- indx
   indx.end <<- indx.start + (window.size * data.len.day) - 1

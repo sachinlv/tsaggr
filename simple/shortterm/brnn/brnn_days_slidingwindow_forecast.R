@@ -52,7 +52,7 @@ predict <- function(siteno,indx) {
     return
   }
 
-  data.set <<- as.vector(powdata.normalized[,siteno])
+  data.set <<- as.vector(powdata[,siteno])#powdata.normalized
 
   indx.start <<- indx
   indx.end <<- indx.start + (window.size * data.len.day) - 1
