@@ -102,6 +102,7 @@ predict <- function(siteno, indx) {
                       threshold=0.01,
                       learningrate=1,
                       algorithm="rprop+", #'rprop-', 'sag', 'slr'
+                      startweights=NULL,
                       lifesign="none",
                       err.fct="sse",
                       act.fct="logistic",
