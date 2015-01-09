@@ -4,38 +4,44 @@ require(ff)
 require(googleVis)
 require(Metrics)
 require(ppls)
+require(combinat)
 require(RSNNS)
 require(ftsa)
 
+
+aggr.cluster.size <- 3
 sites.count <- 10
+indxcombicnt <- 10 #no. of combination
+aggr.mat.size <- indxcombicnt#floor(sites.count/aggr.cluster.size)
+hidden.nodes <<- 10#c(round(window.size/2), window.size,1)
 data.len <- 52560
 #data.len.day <<- 144
 #mat.size <<- 365
-hidden.nodes <<- 10#c(round(window.size/2), window.size,1)
 window.size <- 1440
 train.data.percent <- 0.7
-file.name <- "nerualnet_shortterm_simple.csv"
-file.path <- "/home/freak/Programming/Thesis/results/neuralnet_shortterm_simple/"
+indxseq <- c(seq(1,sites.count))
+#slide.count <- mat.size-window.size+1
 
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
-powdata.normalized <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 winddata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
-winddata.normalized <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
+pow.aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
+wind.aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
 
 train.data <<- c()
 test.data <<- c()
 output <<- c()
+indxcombimat <<- ff(NA, dim=c(aggr.mat.size,indxcombicnt),vmode="integer")
 
 drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
 tablelist_statement = paste("SELECT TABLE_NAME FROM information_schema.TABLES ",
                             "WHERE TABLE_SCHEMA = 'eastwind' AND",
                             "TABLE_NAME LIKE 'onshore_SITE_%' "," LIMIT ",sites.count, ";")
-tables <<- dbGetQuery(con, statement=tablelist_statement)
-tables <<- data.frame(tables)
-
+tables <- dbGetQuery(con, statement=tablelist_statement)
+tables <- data.frame(tables)
 
 loaddata <- function(){
+  colindx <- 1
   for(indx in seq(1,sites.count)){
     tab <- tables[indx,]
     print(paste("Loading from table :: ", tab))
@@ -43,9 +49,28 @@ loaddata <- function(){
     data06 <- data.frame(dbGetQuery(con,statement=query), check.names=FALSE)
     powdata[,indx] <<- as.double(data06[,1])
     winddata[,indx] <<- as.double(data06[,2])
-    powdata.normalized[,indx] <<- normalizeData(as.vector(data06[,1]),type="0_1")
-    winddata.normalized[,indx] <<- normalizeData(as.vector(data06[,2]),type="0_1")
   }
+}
+
+generate.seq.matrix <- function(){
+  mat <- as.matrix(combn(sites.count, aggr.cluster.size)) #generating different combination
+  len <- length(mat[1,])
+  indxseq <- sample(1:len, indxcombicnt)
+  indxcombimat <<- mat[,indxseq]
+}
+
+gen.aggrdata <- function(){
+  col.names <- c()
+  for(i in seq(1 ,aggr.mat.size)){
+    indx.seq <- indxcombimat[,i]
+    pmat <- as.matrix(powdata[,indx.seq])
+    wmat <- as.matrix(winddata[,indx.seq])
+    col.names <- c(col.names, paste('S',paste(indx.seq, collapse=""), sep=""))
+    pow.aggrdata[,i] <<- rowSums(pmat)
+    wind.aggrdata[,i] <<- rowSums(wmat)
+
+  }
+  colnames(pow.aggrdata) <<- col.names
 }
 
 
@@ -55,20 +80,21 @@ predict <- function(siteno, indx) {
     return
   }
 
-  data.set.pow <<- as.vector(powdata.normalized[,siteno])
-  data.set.wind <<- as.vector(winddata.normalized[,siteno])
+  pow.data.normalized <- normalizeData(as.vector(pow.aggrdata[,siteno]),type="0_1")
+  wind.data.normalized <- normalizeData(as.vector(wind.aggrdata[,siteno]),type="0_1")
+  pow.data.set <- as.vector(pow.data.normalized[,1])
+  wind.data.set <- as.vector(wind.data.normalized[,1])
 
   indx.start <<- indx
-  indx.end <<- indx + (window.size - 1)
+  indx.end <<- indx.start + window.size - 1
   data.train <<- c()
   data.test <<- c()
   data.out <<- c()
   count <- 0
 
   while(indx.end <= data.len){
-    print(paste("Site no: ", siteno, "Slide Count: ", count+1))
-    y <- as.vector(data.set.pow[indx.start:indx.end])
-    x <- as.vector(data.set.wind[indx.start:indx.end])
+    y <- as.vector(pow.data.set[indx.start:indx.end])
+    x <- as.vector(wind.data.set[indx.start:indx.end])
 
     train.indx <- floor(window.size *  train.data.percent)
     test.indx <- train.indx + 1
@@ -79,8 +105,8 @@ predict <- function(siteno, indx) {
     x.test <- x[test.indx:window.size]
 
     train.data <- data.frame(y.train,x.train)
+    f = as.formula("y.train ~ x.train ")
 
-    f = as.formula("y.train ~ x.train")
     out <<- neuralnet(f,
                       train.data,
                       hidden=hidden.nodes,
@@ -88,9 +114,9 @@ predict <- function(siteno, indx) {
                       stepmax = 2000,
                       threshold=0.1,
                       learningrate=1,
-                      algorithm="rprop+", #'rprop-', 'sag', 'slr', 'rprop+'
+                      algorithm="rprop+", #'rprop-', 'sag', 'slr'
                       startweights=NULL,
-                      #lifesign="none",
+                      lifesign="none",
                       err.fct="sse",
                       act.fct="logistic",
                       #exclude = NULL,
@@ -98,9 +124,10 @@ predict <- function(siteno, indx) {
                       linear.output=TRUE #If true, act.fct is not applied to the o/p of neuron. So it will be only integartion function
     )
 
+
     data.train <<- c(data.train, y.train)
     data.test <<- c(data.test, y.test)
-    #plot(out)
+
     pred <- compute(out, x.test)$net.result
     data.out <<- c(data.out, pred)
 
@@ -112,28 +139,32 @@ predict <- function(siteno, indx) {
     }
   }
 
-  train.data <<- cbind(train.data, data.train)
-  test.data <<-  cbind(test.data, data.test)
+  train.data <<- cbind(train.data, data.train) #data.mat.train[,window.size]
+  test.data <<-  cbind(test.data, data.test) #data.mat.test[,window.size]
   output <<- cbind(output, data.out)
 }
 
-predict.power <- function(){
+
+predict_for_combination <- function(){
   slide.indx <- 1
   loaddata()
+  generate.seq.matrix()
+  gen.aggrdata()
 
-  for(site in seq(1:sites.count)){
-    predict(site,slide.indx)
+  for(aggr.indx in seq(1,aggr.mat.size)){
+    predict(aggr.indx,slide.indx)
     break
   }
 }
 
 prediction.error <- function(){
   parm.count <- 5
-  err.data <<- matrix(,nrow=sites.count, ncol=parm.count, byrow=TRUE)
-  colnames(err.data) <<- c("site.id", "rmse", "mape", "sse", "mse")
-
-  for(site in seq(1:sites.count)){
-    site.name <- tables[site,]
+  err.data <<- matrix(,nrow=indxcombicnt, ncol=parm.count, byrow=TRUE)
+  #colnames(err.data) <<- c("site.id", "rmse", "mape", "sse", "mse")
+  colnames(err.data) <<- c("SiteNo.Seq","rmse", "mape", "sse", "mse")
+  col.names <- colnames(pow.aggrdata)
+  for(site in seq(1:(aggr.mat.size))){
+    site.name <- col.names[site]
     test <- test.data[,site]
     pred <- output[,site]
     err.rmse <- error(forecast=pred, true=test,method="rmse")
@@ -143,77 +174,26 @@ prediction.error <- function(){
     err.data[site,] <<- c(site.name, err.rmse, err.mape, err.sse, err.mse)
     break
   }
-  write.csv(err.data, file=paste(file.path,file.name))
+  #write.csv(err.data, file=paste(file.path,file.name))
 }
 
-predict.power()
+predict_for_combination()
 prediction.error()
 
-
 err.data
-
-
 #plotting
+length(test.data[,1])
 x1 = train.data[,1]
 x2 = test.data[,1]
 y = output[,1]
-
 length(y)
-plot(y, type='l')
-plot(x1, type='l')
-plot(x2, type='l')
+plot(x2, type="l")
 
-dataToPlot = data.frame(seq(1,4330),x2,y)
+dataToPlot = data.frame(seq(1,440),x2, y)
 Line <- gvisLineChart(dataToPlot)
 plot(Line)
 
-powpred <- denormalizeData(y,getNormParameters(powdata.normalized))
-plot(powpred, type='l')
-summary(out)
-out$generalized.weights
 
-
-#Error Calculation
-install.packages('ftsa')
-require('ftsa')
+#error measure
 err <- error(forecast=y, true=x2,method="mape")
 err
-
-
-#formula creation
-len = 10
-form = paste('d',c(1:len), sep="")
-y = form[len]
-x = form[1:len-1]
-f = as.formula(paste(y, " ~ ", paste(x, collapse="+")))
-f
-
-
-m = matrix(1:12,nrow=3, ncol=4,byrow = FALSE)
-colnames(m) = paste('d',c(1:4),sep='')
-x = colnames(m)
-
-
-
-#Normalizazion testing
-require("ppls")
-a = c(1,2,3,4,5,6,7,8,9,100,101,102)
-tmp = matrix(a,nrow=4,ncol=3)
-
-b = normalize.vector(a)
-plot(b, type="l")
-plot(a, type="l")
-
-n = normalize.vector(x)
-
-#Normalize and Denormalize
-install.packages("RSNNS")
-require("RSNNS")
-a = c(1,2,3,4,5,6,7,8,9,100,101,102)
-tmp = matrix(a,nrow=4,ncol=3)
-norm <- normalizeData(a, type="0_1")
-norm[,1]
-denorm <- denormalizeData(norm[6:12,1], getNormParameters(norm))
-denorm[,1]
-plot(norm[,1], type="l")
-plot(denorm[,1], type="l")
