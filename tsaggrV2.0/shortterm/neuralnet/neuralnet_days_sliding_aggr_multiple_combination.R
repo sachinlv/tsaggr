@@ -8,24 +8,25 @@ require(combinat)
 require(RSNNS)
 require(ftsa)
 
-aggr.cluster.size <- 3
+#aggr.cluster.size <- 3
 sites.count <- 10
-indxcombicnt <- 10 #no. of combination
-aggr.mat.size <- indxcombicnt#floor(sites.count/aggr.cluster.size)
+#indxcombicnt <- 10 #no. of combination
+#aggr.mat.size <- indxcombicnt#floor(sites.count/aggr.cluster.size)
 data.len <- 52560
 data.len.day <<- 144
 mat.size <<- 365
 window.size <- 10
 train.data.percent <- 0.7
-indxseq <- c(seq(1,sites.count))
 slide.count <- mat.size-window.size+1
+#indxseq <- c(seq(1,sites.count))
+filepath <<- '/home/freak/Programming/Thesis/results/results/neuralnet_shortterm_aggr/all/'
 
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
-aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
-train.data <<- c()
-test.data <<- c()
-output <<- c()
-indxcombimat <<- ff(NA, dim=c(aggr.mat.size,indxcombicnt),vmode="integer")
+#aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
+#train.data <<- c()
+#test.data <<- c()
+#output <<- c()
+#indxcombimat <<- ff(NA, dim=c(aggr.mat.size,indxcombicnt),vmode="integer")
 
 drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
@@ -55,23 +56,36 @@ generate.seq.matrix <- function(){
 
 gen.aggrdata <- function(){
   col.names <- c()
-  for(i in seq(1 ,aggr.mat.size)){
-    indx.seq <- indxcombimat[,i]
-    mat <- as.matrix(powdata[,indx.seq])
-    col.names <- c(col.names, paste('S',paste(indx.seq, collapse=""), sep=""))
-    aggrdata[,i] <<- rowSums(mat)
+  if(aggr.mat.size != 0){
+    for(i in seq(1 ,aggr.mat.size)){
+      indx.seq <- indxcombimat[,i]
+      mat <- as.matrix(powdata[,indx.seq])
+      col.names <- c(col.names, paste('S',paste(indx.seq, collapse=""), sep=""))
+      aggrdata[,i] <<- rowSums(mat)
+    }
+    colnames(aggrdata) <<- col.names
   }
-  colnames(aggrdata) <<- col.names
+  else{
+    indx.seq <- seq(1,sites.count)
+    print(indx.seq)
+    aggrdata10 <<- rowSums(as.matrix(powdata[,indx.seq]))
+  }
+
 }
 
 
-predict <- function(siteno, indx) {
+predict <- function(aggrno, indx) {
   if(indx < 1 || indx >= data.len){
     print("Enter indx Greater than 0 and less than the data size")
     return
   }
-
-  data.normalized <- normalizeData(as.vector(aggrdata[,siteno]),type="0_1")
+  data.normalized <- c()
+  if(aggr.mat.size!=0){
+    data.normalized <- normalizeData(as.vector(aggrdata[,aggrno]),type="0_1")
+  }
+  else{
+    data.normalized <- normalizeData(as.vector(aggrdata10),type="0_1")
+  }
   #data.set <- matrix(normalized.data, nrow=data.len.day, ncol=mat.size, byrow=FALSE)
   data.set <- as.vector(data.normalized[,1])
   indx.start <<- indx
@@ -82,6 +96,7 @@ predict <- function(siteno, indx) {
   count <- 0
 
   while(indx.end <= data.len){
+    print(paste("Cluster size: ",aggr.cluster.size," AggrNo.: ", aggrno, " Slide No.: ", count+1))
     data.mat <- matrix(data.set[indx.start:indx.end], nrow=data.len.day, ncol=window.size, byrow=FALSE)
     colnames(data.mat) <- paste("d",c(1:window.size), sep="")
 
@@ -99,9 +114,9 @@ predict <- function(siteno, indx) {
     out <<- neuralnet(f,
                       data.mat.train,
                       hidden=window.size,
-                      rep=10,
+                      rep=2,
                       stepmax = 2000,
-                      threshold=0.01,
+                      threshold=0.02,
                       learningrate=1,
                       algorithm="rprop+", #'rprop-', 'sag', 'slr'
                       startweights=NULL,
@@ -134,40 +149,93 @@ predict <- function(siteno, indx) {
 }
 
 
-predict_for_combination <- function(){
-  slide.indx <- 1
-  loaddata()
-  generate.seq.matrix()
+predict.for.combination <- function(){
+  slide.indx <- 45361
+  #loaddata()
+  #generate.seq.matrix()
   gen.aggrdata()
-
-  for(aggr.indx in seq(1,aggr.mat.size)){
+  if(aggr.mat.size != 0){
+    for(aggr.indx in seq(1,aggr.mat.size)){
       predict(aggr.indx,slide.indx)
-      #break
+      break
+    }
   }
+  else{
+      predict(0,slide.indx)
+  }
+
 }
 
 prediction.error <- function(){
   parm.count <- 5
-  err.data <<- matrix(,nrow=indxcombicnt, ncol=parm.count, byrow=TRUE)
-  #colnames(err.data) <<- c("site.id", "rmse", "mape", "sse", "mse")
-  colnames(err.data) <<- c("SiteNo.Seq","rmse", "mape", "sse", "mse")
-  col.names <- colnames(aggrdata)
-  for(site in seq(1:(aggr.mat.size))){
-    site.name <- col.names[site]
-    test <- test.data[,site]
-    pred <- output[,site]
-    err.rmse <- error(forecast=pred, true=test,method="rmse")
-    err.mape <- error(forecast=pred, true=test,method="mape")
-    err.sse <- error(forecast=pred, true=test,method="sse")
-    err.mse <- error(forecast=pred, true=test,method="mse")
-    err.data[site,] <<- c(site.name, err.rmse, err.mape, err.sse, err.mse)
-    break
+  file.name <- paste('neuralnet_shortterm_aggr_combi',aggr.cluster.size,'.csv',sep="")
+  setwd(filepath)
+  #file <- paste(filepath,file.name)
+  #print(file)
+  if(aggr.mat.size!=0){
+    err.data <<- matrix(,nrow=indxcombicnt, ncol=parm.count, byrow=TRUE)
+    colnames(err.data) <<- c("AggrNo.Seq","rmse", "mape", "sse", "mse")
+    col.names <- colnames(aggrdata)
+    for(site in seq(1:(aggr.mat.size))){
+      site.name <- col.names[site]
+      test <- test.data[,site]
+      pred <- output[,site]
+      err.rmse <- error(forecast=pred, true=test,method="rmse")
+      err.mape <- error(forecast=pred, true=test,method="mape")
+      err.sse <- error(forecast=pred, true=test,method="sse")
+      err.mse <- error(forecast=pred, true=test,method="mse")
+      err.data[site,] <<- c(site.name, err.rmse, err.mape, err.sse, err.mse)
+      break
+    }
+    write.csv(err.data, file=file.name)
   }
-  write.csv(err.data, file=paste(file.path,file.name))
+  else{
+      err.data <<- matrix(,nrow=1,ncol=parm.count, byrow=TRUE)
+      colnames(err.data) <<- c("AggrNo.Seq","rmse", "mape", "sse", "mse")
+      col.name <- paste('S',paste(seq(1,aggr.cluster.size), collapse=""), sep="")
+      site.name <- col.name
+      test <- test.data[,1]
+      pred <- output[,1]
+      err.rmse <- error(forecast=pred, true=test,method="rmse")
+      err.mape <- error(forecast=pred, true=test,method="mape")
+      err.sse <- error(forecast=pred, true=test,method="sse")
+      err.mse <- error(forecast=pred, true=test,method="mse")
+      err.data[1,] <<- c(site.name, err.rmse, err.mape, err.sse, err.mse)
+
+      write.csv(err.data, file=file.name)
+  }
+
 }
 
-predict_for_combination()
-prediction.error()
+predict.all.combination <- function(){
+  loaddata()
+  for(combi in seq(2,10)){#sites.count
+    aggr.cluster.size <<- combi
+
+    if(combi != sites.count){
+      indxcombicnt <<-length(combn(sites.count,combi)[1,])
+      aggr.mat.size <<- indxcombicnt
+      aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
+      indxcombimat <<- ff(NA, dim=c(combi,indxcombicnt),vmode="integer")
+      generate.seq.matrix()
+    }
+    else{
+      indxcombicnt <- 0
+      aggr.mat.size <- 0
+      aggrdata10 <<- ff(NA, dim=data.len, vmode="double")
+    }
+
+    train.data <<- c()
+    test.data <<- c()
+    output <<- c()
+
+    predict.for.combination()
+    prediction.error()
+  }
+
+}
+
+predict.all.combination()
 
 #plotting
 length(test.data[,1])
