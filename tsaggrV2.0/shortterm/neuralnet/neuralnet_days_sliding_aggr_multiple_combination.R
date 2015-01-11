@@ -220,8 +220,8 @@ predict.all.combination <- function(){
       generate.seq.matrix()
     }
     else{
-      indxcombicnt <- 0
-      aggr.mat.size <- 0
+      indxcombicnt <<- 0
+      aggr.mat.size <<- 0
       aggrdata10 <<- ff(NA, dim=data.len, vmode="double")
     }
 
