@@ -80,9 +80,9 @@ predict.pow <- function(siteno, indx) {
     #x.test <- data.frame(x[test.indx:window.size])
 
     #trn.data <- data.frame(y.train,x.train)
-    trn.data <- dat[1:train.indx,]
-    tst.data <- data.frame(x = dat$x[test.indx:window.size])
-
+    trn.data <- data.frame(dat[1:train.indx,])
+    tst.x <- data.frame(x = dat$x[test.indx:window.size])
+    tst.y <- data.frame(y=dat$y[test.indx:window.size])
     f = as.formula("y ~ x")
 
     out <<- gbm(f,
@@ -94,10 +94,10 @@ predict.pow <- function(siteno, indx) {
                 shrinkage =  0.008,
                 n.cores=3)
 
-    data.train <<- c(data.train, trn.data[,1])
-    data.test <<- c(data.test, tst.data[,1])
-    #print(head(tst.data$x))
-    pred <- predict.gbm(out, tst.data, out$n.trees)
+    data.train <<- c(data.train, trn.data$y)
+    data.test <<- c(data.test, tst.y$y)
+
+    pred <- predict.gbm(out, tst.x, out$n.trees)
     data.out <<- c(data.out, pred)
 
     indx.start <<- indx.start + window.slide

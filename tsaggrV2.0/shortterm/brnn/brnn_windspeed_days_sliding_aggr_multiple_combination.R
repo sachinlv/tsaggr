@@ -21,17 +21,17 @@ window.size <- 1440
 train.data.percent <- 0.7
 #indxseq <- c(seq(1,sites.count))
 #slide.count <- mat.size-window.size+1
-filepath <<- '/home/freak/Programming/Thesis/results/results/neuralnet_shortterm_windspeed_aggr/all/'
+filepath <<- '/home/freak/Programming/Thesis/results/results/brnn_shortterm_windspeed_aggr/all/'
 
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 winddata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 #pow.aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
 #wind.aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
 
-train.data <<- c()
-test.data <<- c()
-output <<- c()
-indxcombimat <<- ff(NA, dim=c(aggr.mat.size,indxcombicnt),vmode="integer")
+#train.data <<- c()
+#test.data <<- c()
+#output <<- c()
+#indxcombimat <<- ff(NA, dim=c(aggr.mat.size,indxcombicnt),vmode="integer")
 
 drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
@@ -113,17 +113,23 @@ predict <- function(aggrno, indx) {
     print(paste("Cluster size: ",aggr.cluster.size," AggrNo.: ", aggrno, " Slide No.: ", count+1))
     y <- as.vector(pow.data.set[indx.start:indx.end])
     x <- as.vector(wind.data.set[indx.start:indx.end])
+    dat <- data.frame(cbind(y,x))
 
     train.indx <- floor(window.size *  train.data.percent)
     test.indx <- train.indx + 1
     window.slide <- window.size - train.indx
-    y.train <- y[1:train.indx]
-    x.train <- x[1:train.indx]
-    y.test <- y[test.indx:window.size]
-    x.test <- x[test.indx:window.size]
+    #y.train <- y[1:train.indx]
+    #x.train <- x[1:train.indx]
+    #y.test <- y[test.indx:window.size]
+    #x.test <- x[test.indx:window.size]
 
-    trn.data <- data.frame(y.train,x.train)
-    f = as.formula("y.train ~ x.train ")
+    #trn.data <- data.frame(y.train,x.train)
+    #f = as.formula("y.train ~ x.train ")
+
+    trn.data <- data.frame(dat[1:train.indx,])
+    tst.x <- data.frame(x=dat$x[test.indx:window.size])
+    tst.y <- data.frame(y=dat$y[test.indx:window.size])
+    f = as.formula("y ~ x")
 
     out <<- brnn(f,
                  trn.data,
@@ -139,10 +145,10 @@ predict <- function(aggrno, indx) {
                  Monte_Carlo = FALSE)
 
 
-    data.train <<- c(data.train, y.train)
-    data.test <<- c(data.test, y.test)
+    data.train <<- c(data.train, trn.data$y)
+    data.test <<- c(data.test, tst.y$y)
 
-    pred <- predict.brnn(out , x.test)
+    pred <- predict.brnn(out , tst.x)
     data.out <<- c(data.out, pred)
 
     indx.start <<- indx.start + window.slide
@@ -177,7 +183,7 @@ predict.for.combination <- function(){
 
 prediction.error <- function(){
   parm.count <- 5
-  file.name <- paste('neuralnet_shortterm_windspeed_aggr_combi',aggr.cluster.size,'.csv',sep="")
+  file.name <- paste('brnn_shortterm_windspeed_aggr_combi',aggr.cluster.size,'.csv',sep="")
   setwd(filepath)
 
   if(aggr.mat.size!=0){

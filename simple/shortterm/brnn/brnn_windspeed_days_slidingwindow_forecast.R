@@ -69,18 +69,21 @@ predict.pow <- function(siteno, indx) {
     print(paste("Site no: ", siteno, "Slide Count: ", count+1))
     y <- as.vector(data.set.pow[indx.start:indx.end])
     x <- as.vector(data.set.wind[indx.start:indx.end])
+    dat <- data.frame(cbind(y,x))
 
     train.indx <- floor(window.size *  train.data.percent)
     test.indx <- train.indx + 1
     window.slide <- window.size - train.indx
-    y.train <- y[1:train.indx]
-    x.train <- x[1:train.indx]
-    y.test <- y[test.indx:window.size]
-    x.test <- x[test.indx:window.size]
+    #y.train <- y[1:train.indx]
+    #x.train <- x[1:train.indx]
+    #y.test <- y[test.indx:window.size]
+    #x.test <- x[test.indx:window.size]
 
-    trn.data <- data.frame(y.train,x.train)
-
-    f = as.formula("y.train ~ x.train")
+    #trn.data <- data.frame(y.train,x.train)
+    trn.data <- data.frame(dat[1:train.indx,])
+    tst.x <- data.frame(x=dat$x[test.indx:window.size])
+    tst.y <- data.frame(y=dat$y[test.indx:window.size])
+    f = as.formula("y ~ x")
 
     out <<- brnn(f,
                  trn.data,
@@ -89,16 +92,16 @@ predict.pow <- function(siteno, indx) {
                  mu=0.005,
                  mu_dec=0.1,
                  mu_max=1e10,
-                 change = 0.001,
+                 change = 0.01,
                  neurons=hidden.nodes,
                  normalize=FALSE,
                  verbose=FALSE,
                  Monte_Carlo = FALSE)
 
-    data.train <<- c(data.train, y.train)
-    data.test <<- c(data.test, y.test)
-    #plot(out)
-    pred <- predict.brnn(out , x.test)
+    data.train <<- c(data.train, trn.data$y)
+    data.test <<- c(data.test, tst.y$y)
+
+    pred <- predict.brnn(out , tst.x)
     data.out <<- c(data.out, pred)
 
     indx.start <<- indx.start + window.slide

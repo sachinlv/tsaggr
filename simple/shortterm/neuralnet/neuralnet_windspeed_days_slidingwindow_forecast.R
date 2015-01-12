@@ -69,18 +69,23 @@ predict <- function(siteno, indx) {
     print(paste("Site no: ", siteno, "Slide Count: ", count+1))
     y <- as.vector(data.set.pow[indx.start:indx.end])
     x <- as.vector(data.set.wind[indx.start:indx.end])
+    dat <- data.frame(cbind(y,x))
 
     train.indx <- floor(window.size *  train.data.percent)
     test.indx <- train.indx + 1
     window.slide <- window.size - train.indx
-    y.train <- y[1:train.indx]
-    x.train <- x[1:train.indx]
-    y.test <- y[test.indx:window.size]
-    x.test <- x[test.indx:window.size]
+    #y.train <- y[1:train.indx]
+    #x.train <- x[1:train.indx]
+    #y.test <- y[test.indx:window.size]
+    #x.test <- x[test.indx:window.size]
 
-    trn.data <- data.frame(y.train,x.train)
+    #trn.data <- data.frame(y.train,x.train)
+    #f = as.formula("y.train ~ x.train")
+    trn.data <- data.frame(dat[1:train.indx,])
+    tst.x <- data.frame(x=dat$x[test.indx:window.size])
+    tst.y <- data.frame(y=dat$y[test.indx:window.size])
+    f = as.formula("y ~ x")
 
-    f = as.formula("y.train ~ x.train")
     out <<- neuralnet(f,
                       trn.data,
                       hidden=hidden.nodes,
@@ -98,10 +103,10 @@ predict <- function(siteno, indx) {
                       linear.output=TRUE #If true, act.fct is not applied to the o/p of neuron. So it will be only integartion function
     )
 
-    data.train <<- c(data.train, y.train)
-    data.test <<- c(data.test, y.test)
+    data.train <<- c(data.train, trn.data$y)
+    data.test <<- c(data.test, tst.y$y)
     #plot(out)
-    pred <- compute(out, x.test)$net.result
+    pred <- compute(out, tst.x)$net.result
     data.out <<- c(data.out, pred)
 
     indx.start <<- indx.start + window.slide
