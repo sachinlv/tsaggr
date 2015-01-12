@@ -14,8 +14,8 @@ data.len <- 52560
 hidden.nodes <<- 10#c(round(window.size/2), window.size,1)
 window.size <- 1440
 train.data.percent <- 0.7
-file.name <- "nerualnet_shortterm_simple.csv"
-file.path <- "/home/freak/Programming/Thesis/results/neuralnet_shortterm_simple/"
+file.name <- "nerualnet_shortterm_windspeed_simple.csv"
+file.path <- "/home/freak/Programming/Thesis/results/results/neuralnet_shortterm_windspeed_simple/"
 
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 powdata.normalized <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
@@ -78,23 +78,23 @@ predict <- function(siteno, indx) {
     y.test <- y[test.indx:window.size]
     x.test <- x[test.indx:window.size]
 
-    train.data <- data.frame(y.train,x.train)
+    trn.data <- data.frame(y.train,x.train)
 
     f = as.formula("y.train ~ x.train")
     out <<- neuralnet(f,
-                      train.data,
+                      trn.data,
                       hidden=hidden.nodes,
                       rep=1,
                       stepmax = 2000,
-                      threshold=0.1,
+                      threshold=0.2,
                       learningrate=1,
                       algorithm="rprop+", #'rprop-', 'sag', 'slr', 'rprop+'
                       startweights=NULL,
                       #lifesign="none",
                       err.fct="sse",
                       act.fct="logistic",
-                      #exclude = NULL,
-                      #constant.weights = NULL,
+                      exclude = NULL,
+                      constant.weights = NULL,
                       linear.output=TRUE #If true, act.fct is not applied to the o/p of neuron. So it will be only integartion function
     )
 
@@ -131,7 +131,7 @@ prediction.error <- function(){
   parm.count <- 5
   err.data <<- matrix(,nrow=sites.count, ncol=parm.count, byrow=TRUE)
   colnames(err.data) <<- c("site.id", "rmse", "mape", "sse", "mse")
-
+  setwd(file.path)
   for(site in seq(1:sites.count)){
     site.name <- tables[site,]
     test <- test.data[,site]
@@ -143,7 +143,7 @@ prediction.error <- function(){
     err.data[site,] <<- c(site.name, err.rmse, err.mape, err.sse, err.mse)
     break
   }
-  write.csv(err.data, file=paste(file.path,file.name))
+  write.csv(err.data, file=file.name)
 }
 
 predict.power()

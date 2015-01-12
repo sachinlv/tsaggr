@@ -50,7 +50,7 @@ loaddata <- function(){
 generate.seq.matrix <- function(){
   mat <- as.matrix(combn(sites.count, aggr.cluster.size)) #generating different combination
   len <- length(mat[1,])
-  indxseq <- sample(1:len, indxcombicnt)
+  indxseq <- seq(1,len)#sample(1:len, indxcombicnt)
   indxcombimat <<- mat[,indxseq]
 }
 

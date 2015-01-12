@@ -95,6 +95,7 @@ predict <- function(siteno, indx) {
     indx.start <<- indx.start + window.slide
     indx.end <<- indx.start + (window.size * data.len.day)
     count <- count + 1
+
     if(count == 10){
       break
     }
