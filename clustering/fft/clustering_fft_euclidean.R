@@ -77,4 +77,8 @@ generate.hierarchial.cluster <- function(){
 
 generate.hierarchial.cluster()
 
-plot(hc.img.norm)
+plot(hc.real.norm)
+summary(hc.real.norm)
+
+groups <- cutree(hc.real.norm,k=5)
+rect.hclust(hc.real.norm, k=5, border="red")
