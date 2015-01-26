@@ -8,6 +8,7 @@ require(RSNNS)
 require(ftsa)
 
 sites.count <- 10
+history.length <- 50
 data.len <- 52560
 data.len.day <<- 144
 mat.size <<- 365
@@ -15,28 +16,39 @@ window.size <- 10
 train.data.percent <- 0.7
 file.name <- "gbm_shortterm_simple.csv"
 file.path <- "/home/freak/Programming/Thesis/results/results/gbm_shortterm_simple/"
-
+table.ip.type <- "specific"#"random"
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 powdata.normalized <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 train.data <<- c()
 test.data <<- c()
 output <<- c()
-#train.data <<- ff(NA, dim=c(data.len.day*train.data.percent, mat.size-window.size+1), vmode="double")
-#test.data <<- ff(NA, dim=c(data.len.day*(1-train.data.percent), mat.size-window.size+1), vmode="double")
-#output <<- ff(NA, dim=c(data.len.day*(1-train.data.percent), mat.size-window.size+1), vmode="double")
 
 drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
-tablelist_statement = paste("SELECT TABLE_NAME FROM information_schema.TABLES ",
-                            "WHERE TABLE_SCHEMA = 'eastwind' AND",
-                            "TABLE_NAME LIKE 'onshore_SITE_%' "," LIMIT ",sites.count, ";")
-tables <<- dbGetQuery(con, statement=tablelist_statement)
-tables <<- data.frame(tables)
+if(table.ip.type == "random"){
+    tablelist_statement = paste("SELECT TABLE_NAME FROM information_schema.TABLES ",
+                                "WHERE TABLE_SCHEMA = 'eastwind' AND",
+                                "TABLE_NAME LIKE 'onshore_SITE_%' "," LIMIT ",sites.count, ";")
+    tables <<- dbGetQuery(con, statement=tablelist_statement)
+    tables <<- data.frame(tables)
+}else{
+  t <- c("onshore_SITE_00538",
+         "onshore_SITE_00366",
+         "onshore_SITE_00623",
+         "onshore_SITE_00418",
+         "onshore_SITE_00627",
+         "onshore_SITE_00532",
+         "onshore_SITE_00499",
+         "onshore_SITE_00571",
+         "onshore_SITE_03247",
+         "onshore_SITE_00622")
+  tables <<- data.frame(cbind(numeric(0),t))
+}
 
 
 loaddata <- function(){
   for(indx in seq(1,sites.count)){
-    tab <- tables[indx,]
+    tab <- tables[indx,1]
     print(paste("Loading from table :: ", tab))
     query <- paste(" select pow from ", tab, " WHERE (mesdt >= 20060101 && mesdt < 20070101) LIMIT ", data.len, ";")
     data06 <- data.frame(dbGetQuery(con,statement=query), check.names=FALSE)
@@ -46,7 +58,7 @@ loaddata <- function(){
 }
 
 
-predict <- function(siteno, indx) {
+predict.pow <- function(siteno, indx) {
   if(indx < 1 || indx >= data.len){
     print("Enter indx Greater than 0 and less than the data size")
     return
@@ -101,17 +113,17 @@ predict <- function(siteno, indx) {
     }
   }
 
-  train.data <<- cbind(train.data, data.train) #data.mat.train[,window.size]
-  test.data <<-  cbind(test.data, data.test) #data.mat.test[,window.size]
+  train.data <<- cbind(train.data, data.train)
+  test.data <<-  cbind(test.data, data.test)
   output <<- cbind(output, data.out)
 }
 
 predict.power <- function(){
-  slide.indx <- 1
+  slide.indx <- data.len - (history.length * data.len.day) + 1
   loaddata()
 
   for(site in seq(1:sites.count)){
-    predict(site,slide.indx)
+    predict.pow(site,slide.indx)
     break
   }
 }
@@ -122,7 +134,7 @@ prediction.error <- function(){
   colnames(err.data) <<- c("site.id", "rmse", "mape", "sse", "mse")
   setwd(file.path)
   for(site in seq(1:sites.count)){
-    site.name <- tables[site,]
+    site.name <- as.character(tables[site,1])
     test <- test.data[,site]
     pred <- output[,site]
     err.rmse <- error(forecast=pred, true=test,method="rmse")

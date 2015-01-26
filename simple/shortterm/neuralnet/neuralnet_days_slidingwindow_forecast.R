@@ -8,35 +8,47 @@ require(RSNNS)
 require(ftsa)
 
 sites.count <- 10
+history.length <- 50
 data.len <- 52560
 data.len.day <<- 144
 mat.size <<- 365
 window.size <- 10
 train.data.percent <- 0.7
-file.name <- "nerualnet_shortterm_simple.csv"
-file.path <- "/home/freak/Programming/Thesis/results/neuralnet_shortterm_simple/"
-
+file.name <- "neuralnet_shortterm_simple.csv"
+file.path <- "/home/freak/Programming/Thesis/results/results/neuralnet_shortterm_simple/"
+table.ip.type <- "specific"#"random"
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 powdata.normalized <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 train.data <<- c()
 test.data <<- c()
 output <<- c()
-#train.data <<- ff(NA, dim=c(data.len.day*train.data.percent, mat.size-window.size+1), vmode="double")
-#test.data <<- ff(NA, dim=c(data.len.day*(1-train.data.percent), mat.size-window.size+1), vmode="double")
-#output <<- ff(NA, dim=c(data.len.day*(1-train.data.percent), mat.size-window.size+1), vmode="double")
 
 drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
-tablelist_statement = paste("SELECT TABLE_NAME FROM information_schema.TABLES ",
-                            "WHERE TABLE_SCHEMA = 'eastwind' AND",
-                            "TABLE_NAME LIKE 'onshore_SITE_%' "," LIMIT ",sites.count, ";")
-tables <<- dbGetQuery(con, statement=tablelist_statement)
-tables <<- data.frame(tables)
 
+if(table.ip.type == "random"){
+  tablelist_statement = paste("SELECT TABLE_NAME FROM information_schema.TABLES ",
+                              "WHERE TABLE_SCHEMA = 'eastwind' AND",
+                              "TABLE_NAME LIKE 'onshore_SITE_%' "," LIMIT ",sites.count, ";")
+  tables <<- dbGetQuery(con, statement=tablelist_statement)
+  tables <<- data.frame(tables)
+}else{
+  t <- c("onshore_SITE_00538",
+         "onshore_SITE_00366",
+         "onshore_SITE_00623",
+         "onshore_SITE_00418",
+         "onshore_SITE_00627",
+         "onshore_SITE_00532",
+         "onshore_SITE_00499",
+         "onshore_SITE_00571",
+         "onshore_SITE_03247",
+         "onshore_SITE_00622")
+  tables <<- data.frame(cbind(numeric(0),t))
+}
 
 loaddata <- function(){
   for(indx in seq(1,sites.count)){
-    tab <- tables[indx,]
+    tab <- tables[indx,1]
     print(paste("Loading from table :: ", tab))
     query <- paste(" select pow from ", tab, " WHERE (mesdt >= 20060101 && mesdt < 20070101) LIMIT ", data.len, ";")
     data06 <- data.frame(dbGetQuery(con,statement=query), check.names=FALSE)
@@ -46,7 +58,7 @@ loaddata <- function(){
 }
 
 
-predict <- function(siteno, indx) {
+predict.pow <- function(siteno, indx) {
   if(indx < 1 || indx >= data.len){
     print("Enter indx Greater than 0 and less than the data size")
     return
@@ -80,19 +92,19 @@ predict <- function(siteno, indx) {
     out <<- neuralnet(f,
                       data.mat.train,
                       hidden=window.size,#c(round(window.size/2), window.size,1)
-                      rep=10,
+                      rep=2,
                       stepmax = 2000,
-                      threshold=0.01,
+                      threshold=0.2,
                       learningrate=1,
                       algorithm="rprop+", #'rprop-', 'sag', 'slr', 'rprop+'
                       startweights=NULL,
-                      #lifesign="none",
-                      err.fct="ce",
+                      lifesign="none",
+                      err.fct="sse",
                       act.fct="logistic",
-                      #exclude = NULL,
-                      #constant.weights = NULL,
+                      exclude = NULL,
+                      constant.weights = NULL,
                       linear.output=TRUE #If true, act.fct is not applied to the o/p of neuron. So it will be only integartion function
-                    )
+          )
 
     data.train <<- c(data.train, data.mat.train[,window.size])
     data.test <<- c(data.test, data.mat.test[,window.size])
@@ -106,20 +118,19 @@ predict <- function(siteno, indx) {
     if(count == 10){
       break
     }
-    #plot.nn(out)
   }
 
-  train.data <<- cbind(train.data, data.train) #data.mat.train[,window.size]
-  test.data <<-  cbind(test.data, data.test) #data.mat.test[,window.size]
+  train.data <<- cbind(train.data, data.train)
+  test.data <<-  cbind(test.data, data.test)
   output <<- cbind(output, data.out)
 }
 
 predict.power <- function(){
-  slide.indx <- 1
+  slide.indx <- data.len - (history.length * data.len.day) + 1
   loaddata()
 
   for(site in seq(1:sites.count)){
-    predict(site,slide.indx)
+    predict.pow(site,slide.indx)
     break
   }
 }
@@ -128,27 +139,26 @@ prediction.error <- function(){
   parm.count <- 5
   err.data <<- matrix(,nrow=sites.count, ncol=parm.count, byrow=TRUE)
   colnames(err.data) <<- c("site.id", "rmse", "mape", "sse", "mse")
-
+  setwd(file.path)
   for(site in seq(1:sites.count)){
-      site.name <- tables[site,]
+      site.name <- as.character(tables[site,1])
       test <- test.data[,site]
       pred <- output[,site]
       err.rmse <- error(forecast=pred, true=test,method="rmse")
       err.mape <- error(forecast=pred, true=test,method="mape")
       err.sse <- error(forecast=pred, true=test,method="sse")
       err.mse <- error(forecast=pred, true=test,method="mse")
+      print(site.name)
       err.data[site,] <<- c(site.name, err.rmse, err.mape, err.sse, err.mse)
       break
   }
-  write.csv(err.data, file=paste(file.path,file.name))
+  write.csv(err.data, file=file.name)
 }
 
 predict.power()
 prediction.error()
 
-
 err.data
-
 
 #plotting
 x1 = train.data[,1]
@@ -163,54 +173,3 @@ plot(x2, type='l')
 dataToPlot = data.frame(seq(1,440),x2,y)
 Line <- gvisLineChart(dataToPlot)
 plot(Line)
-
-powpred <- denormalizeData(y,getNormParameters(powdata.normalized))
-plot(powpred, type='l')
-summary(out)
-out$generalized.weights
-
-
-#Error Calculation
-install.packages('ftsa')
-require('ftsa')
-err <- error(forecast=y, true=x2,method="mape")
-err
-
-
-#formula creation
-len = 10
-form = paste('d',c(1:len), sep="")
-y = form[len]
-x = form[1:len-1]
-f = as.formula(paste(y, " ~ ", paste(x, collapse="+")))
-f
-
-
-m = matrix(1:12,nrow=3, ncol=4,byrow = FALSE)
-colnames(m) = paste('d',c(1:4),sep='')
-x = colnames(m)
-
-
-
-#Normalizazion testing
-require("ppls")
-a = c(1,2,3,4,5,6,7,8,9,100,101,102)
-tmp = matrix(a,nrow=4,ncol=3)
-
-b = normalize.vector(a)
-plot(b, type="l")
-plot(a, type="l")
-
-n = normalize.vector(x)
-
-#Normalize and Denormalize
-install.packages("RSNNS")
-require("RSNNS")
-a = c(1,2,3,4,5,6,7,8,9,100,101,102)
-tmp = matrix(a,nrow=4,ncol=3)
-norm <- normalizeData(a, type="0_1")
-norm[,1]
-denorm <- denormalizeData(norm[6:12,1], getNormParameters(norm))
-denorm[,1]
-plot(norm[,1], type="l")
-plot(denorm[,1], type="l")

@@ -8,33 +8,41 @@ require(combinat)
 require(RSNNS)
 require(ftsa)
 
-#aggr.cluster.size <- 3
+history.length <- 50
 sites.count <- 10
-#indxcombicnt <- 10 #no. of combination
-#aggr.mat.size <- indxcombicnt#floor(sites.count/aggr.cluster.size)
 data.len <- 52560
 data.len.day <<- 144
 mat.size <<- 365
 window.size <- 10
 train.data.percent <- 0.7
-slide.count <- mat.size-window.size+1
-#indxseq <- c(seq(1,sites.count))
+#slide.count <- mat.size-window.size+1
 filepath <<- '/home/freak/Programming/Thesis/results/results/gbm_shortterm_aggr/all/'
 
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
-#aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
-#train.data <<- c()
-#test.data <<- c()
-#output <<- c()
-#indxcombimat <<- ff(NA, dim=c(aggr.mat.size,indxcombicnt),vmode="integer")
+table.ip.type <- "specific"#"random"
 
 drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
-tablelist_statement = paste("SELECT TABLE_NAME FROM information_schema.TABLES ",
-                            "WHERE TABLE_SCHEMA = 'eastwind' AND",
-                            "TABLE_NAME LIKE 'onshore_SITE_%' "," LIMIT ",sites.count, ";")
-tables <- dbGetQuery(con, statement=tablelist_statement)
-tables <- data.frame(tables)
+
+if(table.ip.type == "random"){
+    tablelist_statement = paste("SELECT TABLE_NAME FROM information_schema.TABLES ",
+                                "WHERE TABLE_SCHEMA = 'eastwind' AND",
+                                "TABLE_NAME LIKE 'onshore_SITE_%' "," LIMIT ",sites.count, ";")
+    tables <- dbGetQuery(con, statement=tablelist_statement)
+    tables <- data.frame(tables)
+}else{
+  t <- c("onshore_SITE_00538",
+         "onshore_SITE_00366",
+         "onshore_SITE_00623",
+         "onshore_SITE_00418",
+         "onshore_SITE_00627",
+         "onshore_SITE_00532",
+         "onshore_SITE_00499",
+         "onshore_SITE_00571",
+         "onshore_SITE_03247",
+         "onshore_SITE_00622")
+  tables <<- data.frame(cbind(numeric(0),t))
+}
 
 loaddata <- function(){
   colindx <- 1
@@ -74,7 +82,7 @@ gen.aggrdata <- function(){
 }
 
 
-predict <- function(aggrno, indx) {
+predict.pow <- function(aggrno, indx) {
   if(indx < 1 || indx >= data.len){
     print("Enter indx Greater than 0 and less than the data size")
     return
@@ -88,15 +96,6 @@ predict <- function(aggrno, indx) {
     data.normalized <- normalizeData(as.vector(aggrdata10),type="0_1")
   }
   data.set <- as.vector(data.normalized[,1])
-  #data <- c()
-  #if(aggr.mat.size!=0){
-  #  data <- as.vector(aggrdata[,aggrno])
-  #}
-  #else{
-  # data <- as.vector(aggrdata10)
-  #}
-  #data.set <- data#as.vector(data[,1])
-
   indx.start <<- indx
   indx.end <<- indx.start + (window.size * data.len.day) - 1
   data.train <<- c()
@@ -143,8 +142,8 @@ predict <- function(aggrno, indx) {
     }
   }
 
-  train.data <<- cbind(train.data, data.train) #data.mat.train[,window.size]
-  test.data <<-  cbind(test.data, data.test) #data.mat.test[,window.size]
+  train.data <<- cbind(train.data, data.train)
+  test.data <<-  cbind(test.data, data.test)
   output <<- cbind(output, data.out)
 }
 
@@ -156,12 +155,12 @@ predict.for.combination <- function(){
   gen.aggrdata()
   if(aggr.mat.size != 0){
     for(aggr.indx in seq(1,aggr.mat.size)){
-      predict(aggr.indx,slide.indx)
+      predict.pow(aggr.indx,slide.indx)
       break
     }
   }
   else{
-    predict(0,slide.indx)
+    predict.pow(0,slide.indx)
   }
 
 }
@@ -170,8 +169,7 @@ prediction.error <- function(){
   parm.count <- 5
   file.name <- paste('gbm_shortterm_aggr_combi',aggr.cluster.size,'.csv',sep="")
   setwd(filepath)
-  #file <- paste(filepath,file.name)
-  #print(file)
+
   if(aggr.mat.size!=0){
     err.data <<- matrix(,nrow=indxcombicnt, ncol=parm.count, byrow=TRUE)
     colnames(err.data) <<- c("AggrNo.Seq","rmse", "mape", "sse", "mse")
