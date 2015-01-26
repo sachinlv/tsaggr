@@ -9,11 +9,20 @@ db = MySQLdb.connect(host="localhost",
 cur = db.cursor()
 
 file_dir = "/usr/wind_data/"
-file_list = listdir(file_dir)
-#if 'SITE_00001.CSV' in file_list:
-#    print(len(file_list))
+#file_list = listdir(file_dir)
+file_list = ['SITE_00538.CSV',
+             'SITE_00366.CSV',
+             'SITE_00623.CSV',
+             'SITE_00418.CSV',
+             'SITE_00627.CSV',
+             'SITE_00532.CSV',
+             'SITE_00499.CSV',
+             'SITE_00571.CSV',
+             'SITE_03247.CSV',
+             'SITE_00622.CSV']
 
-for file in file_list[200:300]:
+file_list.sort()
+for file in file_list[0:9]:
     if(file.endswith('.CSV')):
         file_path = file_dir + file
         print('loading file:: ' + file_path)
