@@ -17,17 +17,26 @@ dist.mat.img.norm <<- matrix(, nrow=sites.count, ncol=sites.count)
 
 drv <- dbDriver("MySQL")
 con <- dbConnect(drv, host="localhost", dbname="eastwind", user="sachin", pass="password")
-tablelist_statement = paste("SELECT TABLE_NAME FROM information_schema.TABLES ",
-                            "WHERE TABLE_SCHEMA = 'eastwind' AND",
-                            "TABLE_NAME LIKE 'onshore_SITE_%' "," LIMIT ",sites.count, ";")
-tables <- dbGetQuery(con, statement=tablelist_statement)
-tables <- data.frame(tables)
-
+#tablelist_statement = paste("SELECT TABLE_NAME FROM information_schema.TABLES ",
+#                            "WHERE TABLE_SCHEMA = 'eastwind' AND",
+#                            "TABLE_NAME LIKE 'onshore_SITE_%' "," LIMIT ",sites.count, ";")
+#tables <- dbGetQuery(con, statement=tablelist_statement)
+#tables <- data.frame(tables)
+tables <- c('onshore_SITE_00002',
+            'onshore_SITE_00003',
+            'onshore_SITE_00004',
+            'onshore_SITE_00005',
+            'onshore_SITE_00006',
+            'onshore_SITE_00007',
+            'onshore_SITE_00008',
+            'onshore_SITE_00012',
+            'onshore_SITE_00013',
+            'onshore_SITE_00014')
 
 loaddata <- function(){
   colindx <- 1
   for(indx in seq(1,sites.count)){
-    tab <- tables[indx,]
+    tab <- tables[indx]
     print(paste("Loading from table :: ", tab))
     query <- paste(" select pow from ", tab, " WHERE (mesdt >= 20060101 && mesdt < 20070101) LIMIT ", data.len, ";")
     data06 <- data.frame(dbGetQuery(con,statement=query), check.names=FALSE)
@@ -82,3 +91,11 @@ summary(hc.real.norm)
 
 groups <- cutree(hc.real.norm,k=5)
 rect.hclust(hc.real.norm, k=5, border="red")
+
+
+hc.real.norm$order
+
+mat <- as.matrix(powdata[45361:52560,])
+k <- kmeans(mat,3,algorithm=c("Lloyd"))
+clust <- k$cluster
+as.matrix(clust)
