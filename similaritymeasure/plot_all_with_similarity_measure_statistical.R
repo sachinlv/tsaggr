@@ -40,8 +40,6 @@ powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 powdata.normalized <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 threshold.rmse <<- 0.3
 threshold.dist <<- 0.3
-combination.result <<- c()
-file.list <- list.files(file.path.all, pattern="*.csv")
 drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
 
@@ -57,6 +55,7 @@ setvals <- function(algorithm, measure, type){
   algo <<- algorithm
   sim.meas <<- measure
   ip.type <<- type#'statistical'
+  combination.result <<- c()
   file.path.single <<- paste(results.file.path,algo,'_shortterm_simple/',sep="")
   file.path.all <<- paste(results.file.path,algo,'_shortterm_aggr/all/',sep="")
   plot.file <<- paste(plot.file.path,
@@ -230,11 +229,10 @@ plot.for.algo <- function(){
   }
   dev.copy2pdf(file =plot.file)
   #dev.off()
-  combination.result <- as.character(combination.result)
-  combination.result <- gsub("0","10",combination.result)
+  combination.result <<- as.character(combination.result)
+  combination.result <<- gsub("0","10",combination.result)
   df <- c(paste("RMSE threshold", as.character(threshold.rmse)))
   df <- c(df,paste("Similarity Threshold",as.character(threshold.dist)))
-  #combination.result <- cbind(numeric(0),combination.result)
   df <- c(df, combination.result)
   write.table(df, result.file)
 }
@@ -245,10 +243,10 @@ plot.all <- function(){
   for(alg in algo.vec){
     for(mes in simi.meas.vec){
       setvals(alg,mes,typ)
+      plot.for.algo()
       break
     }
   }
-  plot.for.algo()
 }
 
 plot.all()
