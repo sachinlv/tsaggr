@@ -2,27 +2,13 @@ require(RMySQL)
 require(ff)
 require(RSNNS)
 require(TSdist)
-algo.vec <- c('neuralnet','brnn','gbm')
-simi.meas.vec <- c('euclideanDistance',
-                   'minkowskiDistance',
-                   'manhattanDistance',
-                   'fourierDistance',
-                   'correlationDistance')
 
-algo <- 'gbm'
-sim.meas <- 'pca'
-ip.type <- 'statistical'
-file.path.single <- paste('/home/freak/Dropbox/results/',algo,'_shortterm_simple/',sep="")
-file.path.all <- paste('/home/freak/Dropbox/results/',algo,'_shortterm_aggr/all/',sep="")
-plot.file <- paste('/home/freak/Programming/Thesis/results/plots/',
-                   algo,'_',
-                   ip.type,'_',
-                   sim.meas,'.pdf',sep="")
-result.file <- paste('/home/freak/Programming/Thesis/results/plots/combination/',
-                      algo,'_',
-                      ip.type,'_',
-                      sim.meas,'.csv',sep="")
+table.ip.type <- "specific"#"random"
+results.file.path <-'/home/freak/Dropbox/results/specific_sites/texas/'
+plot.file.path <- '/home/freak/Programming/Thesis/results/plots/specific_sites/texas/'
+combination.file.path <- '/home/freak/Programming/Thesis/results/plots/specific_sites/texas/combination/'
 
+if(table.ip.type == "random"){
 tables <- c('onshore_SITE_00002',
             'onshore_SITE_00003',
             'onshore_SITE_00004',
@@ -33,25 +19,63 @@ tables <- c('onshore_SITE_00002',
             'onshore_SITE_00012',
             'onshore_SITE_00013',
             'onshore_SITE_00014')
+}else{
+  t <- c("onshore_SITE_00538",
+         "onshore_SITE_00366",
+         "onshore_SITE_00623",
+         "onshore_SITE_00418",
+         "onshore_SITE_00627",
+         "onshore_SITE_00532",
+         "onshore_SITE_00499",
+         "onshore_SITE_00571",
+         "onshore_SITE_03247",
+         "onshore_SITE_00622")
+  tables <<- data.frame(cbind(numeric(0),t))
+}
+
 
 sites.count <- 10
 data.len <- 52560
-file.name.single <- paste(algo,'_shortterm_simple.csv',sep="")
-file.name.all <- paste(algo,'_shortterm_aggr_combi',sep="")
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 powdata.normalized <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 threshold.rmse <<- 0.3
 threshold.dist <<- 0.3
-
 combination.result <<- c()
-
 file.list <- list.files(file.path.all, pattern="*.csv")
 drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
 
+algo.vec <<- c('neuralnet','brnn','gbm')
+simi.meas.vec <<- c('euclidean',
+                   'minkowski',
+                   'manhattan',
+                   'fourier',
+                   'correlation',
+                   'pca')
+
+setvals <- function(algorithm, measure, type){
+  algo <<- algorithm
+  sim.meas <<- measure
+  ip.type <<- type#'statistical'
+  file.path.single <<- paste(results.file.path,algo,'_shortterm_simple/',sep="")
+  file.path.all <<- paste(results.file.path,algo,'_shortterm_aggr/all/',sep="")
+  plot.file <<- paste(plot.file.path,
+                     algo,'_',
+                     ip.type,'_',
+                     sim.meas,'.pdf',sep="")
+  result.file <<- paste(combination.file.path,
+                       algo,'_',
+                       ip.type,'_',
+                       sim.meas,'.csv',sep="")
+
+  file.name.single <<- paste(algo,'_shortterm_simple.csv',sep="")
+  file.name.all <<- paste(algo,'_shortterm_aggr_combi',sep="")
+}
+
+
 load.data <- function(){
   for(indx in seq(1,sites.count)){
-    tab <- tables[indx]
+    tab <- as.character(tables[indx,1])
     print(paste("Loading from table :: ", tab))
     query <- paste(" select pow from ", tab, " WHERE (mesdt >= 20060101 && mesdt < 20070101) LIMIT ", data.len, ";")
     data06 <- data.frame(dbGetQuery(con,statement=query), check.names=FALSE)
@@ -91,7 +115,7 @@ gen.dist.mat <- function(aggr.seq){
       i1 <- aggr.seq[i]
       j1 <- aggr.seq[j]
       data.mat <- data.frame(c1=powdata[,i1], c2=powdata[,j1])
-      #pca-start
+
       mat[i,j] <- switch(sim.meas,
                   "pca"={
                     f <- formula("~ c1 + c2")
@@ -167,8 +191,8 @@ get.err.dist.data <- function(){
 
 
 
-plot.all <- function(){
-  load.data()
+plot.for.algo <- function(){
+  #load.data()
   #x11()
   par(mfrow=c(5,2))
   par(mar=c(0.5, 4.5, 0.5, 0.5))
@@ -191,7 +215,7 @@ plot.all <- function(){
 
   #plot2-10
   setwd(file.path.all)
-  for(i in seq(2,10)){
+  for(i in seq(2,3)){
     load.err.data(i)
     data.to.plot <- get.err.dist.data()
     #typ <- if(i == 10) 'p' else 'l'
@@ -201,21 +225,8 @@ plot.all <- function(){
     f <- formula('y~x')
     plot(f,d,
          main=cor(data.to.plot$err.rmse,data.to.plot$dist),
-         #type="p",
-         #col=c("red","blue"),
          xlab=paste("rmse combination ",i),
          ylab=paste("distance combination ",i))
-         #main="Combination")neuralnet_statistical_euclidean.pdf
-         #plot(data.to.plot$dist)
-         #if(i<10){
-         #  lines(data.to.plot$dist,col="blue")
-         #}
-         #else{
-         #  print(data.to.plot$dist)
-         #points(data.to.plot$dist,,col="blue")
-         #}
-         #legend("topright", legend=c("rmse","correlation"),
-         #           col=c("red","blue"), text.col=c("red","blue"))
   }
   dev.copy2pdf(file =plot.file)
   #dev.off()
@@ -228,10 +239,21 @@ plot.all <- function(){
   write.table(df, result.file)
 }
 
+plot.all <- function(){
+  typ <- 'statistical'
+  load.data()
+  for(alg in algo.vec){
+    for(mes in simi.meas.vec){
+      setvals(alg,mes,typ)
+      break
+    }
+  }
+  plot.for.algo()
+}
+
 plot.all()
 
-
-#PCA
+#PCA-test
 mat <- as.matrix(powdata[,1:10])
 colnames(mat) <- c(paste('c',seq(1,10),sep=""))
 f <- formula("~ c1 + c2")

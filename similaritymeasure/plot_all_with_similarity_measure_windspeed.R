@@ -9,7 +9,7 @@ simi.meas.vec <- c('euclideanDistance',
                    'fourierDistance',
                    'correlationDistance')
 
-algo <- 'brnn'
+algo <- 'gbm'
 sim.meas <- 'fourier'
 ip.type <- 'windspeed'
 file.path.single <- paste('/home/freak/Dropbox/results/',algo,'_shortterm_',ip.type,'_simple/',sep="")
