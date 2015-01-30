@@ -115,7 +115,7 @@ predict.pow <- function(aggrno, indx) {
   data.test <<- c()
   data.out <<- c()
   count <- 0
-  print('hiiiiiiiiiiii')
+
   while(indx.end <= data.len){
     print(paste("Cluster size: ",aggr.cluster.size," AggrNo.: ", aggrno, " Slide No.: ", count+1))
     y <- as.vector(pow.data.set[indx.start:indx.end])
@@ -174,12 +174,12 @@ predict.for.combination <- function(){
   gen.aggrdata()
   if(aggr.mat.size != 0){
     for(aggr.indx in seq(1,aggr.mat.size)){
-      predict(aggr.indx,slide.indx)
+      predict.pow(aggr.indx,slide.indx)
       break
     }
   }
   else{
-    predict(0,slide.indx)
+    predict.pow(0,slide.indx)
   }
 }
 
@@ -222,8 +222,6 @@ prediction.error <- function(){
   }
 
 }
-
-
 
 predict.all.combination <- function(){
   loaddata()
