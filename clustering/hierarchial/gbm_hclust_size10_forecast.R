@@ -24,7 +24,7 @@ table.ip.type <- "random"#"specific"
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 powdata.normalized <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 dist.mat <<- matrix(0, nrow=sites.count, ncol=sites.count)
-dist.mat.norm <<- matrix(0, nrow=sites.count, ncol=sites.count)
+#dist.mat.norm <<- matrix(0, nrow=sites.count, ncol=sites.count)
 
 
 drv <- dbDriver("MySQL")
@@ -74,7 +74,7 @@ generate.distance.matrix <- function(){
     for(j in seq(1, sites.count)){
       data.mat <- data.frame(c1=powdata[,i], c2=powdata[,j])
 
-      dist.mat[i,j] <- switch(sim.meas,
+      dist.mat[i,j] <<- switch(sim.meas,
                               "pca"={
                                 f <- formula("~ c1 + c2")
                                 pc <- princomp(f,data=data.mat, cor=FALSE)
@@ -118,7 +118,7 @@ generate.hierarchial.cluster <- function(){
   loaddata()
   generate.distance.matrix()
   hc <<- hclust(as.dist(dist.mat))
-  hc.norm <<- hclust(as.dist(dist.mat.norm))
+  #hc.norm <<- hclust(as.dist(dist.mat.norm))
 }
 
 
