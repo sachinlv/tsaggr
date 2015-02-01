@@ -164,8 +164,8 @@ predict.pow <- function(cut.size, aggrno, indx) {
     train.dataset.indx <- floor(data.len.day *  train.data.percent)
     test.dataset.indx <- train.dataset.indx + 1
     window.slide <- data.len.day - train.dataset.indx
-    data.mat.train <- data.mat[1:train.dataset.indx,]
-    data.mat.test <- data.mat[test.dataset.indx:data.len.day,]
+    data.mat.train <- data.frame(data.mat[1:train.dataset.indx,])
+    data.mat.test <- data.frame(data.mat[test.dataset.indx:data.len.day,])
 
     formula.set <- colnames(data.mat)
     y = formula.set[window.size]
