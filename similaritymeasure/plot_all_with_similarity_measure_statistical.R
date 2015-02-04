@@ -214,9 +214,9 @@ plot.for.algo <- function(){
   par(mar=c(0.5, 4.5, 0.5, 0.5))
   plot.window(xlim=c(0,300),ylim=c(0,1),asp=1)
   #plot singles
-  setwd(file.path.single)
-  load.err.data(1)
-  data.to.plot <- rmse$err
+  #setwd(file.path.single)
+  #load.err.data(1)
+  #data.to.plot <- rmse$err
   #plot(data.to.plot,
   #     type="p",
   #     ylim=c(0,1),
@@ -231,7 +231,7 @@ plot.for.algo <- function(){
 
   #plot1-10
   setwd(file.path.all)
-  for(i in seq(1,3)){
+  for(i in seq(1,sites.count)){
     load.err.data(i)
     data.to.plot <- get.err.dist.data()
     #typ <- if(i == 10) 'p' else 'l'
