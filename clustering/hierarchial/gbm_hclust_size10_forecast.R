@@ -13,6 +13,7 @@ mat.size <<- 365
 window.size <- 10
 sim.meas <- 'pca'
 plot.file <- 'gbm_shortterm_hclust_aggr_plot.pdf'
+plot.file.path <- '/home/freak/Programming/Thesis/results/plots/clustering/random_sites/'
 train.data.percent <- 0.7
 file.name.generic <<-'gbm_shortterm_hclust'
 forecast.aggr.err.file <<- 'gbm_shortterm_hclust_aggr.csv'
@@ -285,7 +286,7 @@ plot.err.aggr <- function(){
   x <- err.tbl$max.clust.size
   y <- err.tbl$rmse
   plot(y~x)
-  dev.copy2pdf(file =plot.file)
+  dev.copy2pdf(file =paste(plot.file.path,plot.file,sep=""))
 }
 
 predict.hclust.aggregates <- function(){

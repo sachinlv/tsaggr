@@ -14,6 +14,7 @@ window.size <- 10
 train.data.percent <- 0.7
 sim.meas <- 'euclidean'
 plot.file <- 'neuralnet_shortterm_hclust_aggr_plot.pdf'
+plot.file.path <- '/home/freak/Programming/Thesis/results/plots/clustering/random_sites/'
 file.name.generic <<-'neuralnet_shortterm_hclust'
 forecast.aggr.err.file <<- 'neuralnet_shortterm_hclust_aggr.csv'
 filepath <<- '/home/freak/Programming/Thesis/results/results/neuralnet_shortterm_hclust/'
@@ -292,7 +293,7 @@ plot.err.aggr <- function(){
   x <- err.tbl$max.clust.size
   y <- err.tbl$rmse
   plot(y~x)
-  dev.copy2pdf(file =plot.file)
+  dev.copy2pdf(file =paste(plot.file.path,plot.file,sep=""))
 }
 
 predict.hclust.aggregates <- function(){
