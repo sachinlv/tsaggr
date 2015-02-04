@@ -107,6 +107,18 @@ generate.distance.matrix <- function(){
                                 #c <- cov(d[,1:2])#,method=c("pearson"))
                                 #m <- c(mean(d[,1]), mean(d[,2]))
                                 #mat[i,j] <- mahalanobis(d,m,c)
+                              },
+                              "dtw"={
+                                dtwDistance(data.mat$c1, data.mat$c2)
+                              },
+                              "edr"={
+                                edrDistance(data.mat$c1, data.mat$c2, epsilon=0.1)#, sigma)
+                              },
+                              "erp"={
+                                erpDistance(data.mat$c1, data.mat$c2, g=0)
+                              },
+                              "lcss"={
+                                lcssDistance(data.mat$c1, data.mat$c2, epsilon=0.1)
                               }
       )
     }
@@ -124,7 +136,7 @@ generate.hierarchial.cluster <- function(){
 
 
 generate.aggr.matrix <- function(size,vect){
-  aggr.mat <<- matrix(0,nrow=52560,ncol=size)
+  aggr.mat <<- matrix(0,nrow=data.len,ncol=size)
   col.names <- c()
   clust.sizes <- c()
   for(cut.no in seq(1,size)){

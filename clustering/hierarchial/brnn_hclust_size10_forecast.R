@@ -101,12 +101,24 @@ generate.distance.matrix <- function(){
                                 abs(mean(data.mat$c1-data.mat$c2))
                               },
                               "mahalanobis"={
-                                d <- matrix(NA,nrow=52560,ncol=2)
+                                d <- matrix(NA,nrow=7200,ncol=2)
                                 #d[,1] <- powdata[,i1]
                                 #d[,2] <- powdata[,j1]
                                 #c <- cov(d[,1:2])#,method=c("pearson"))
                                 #m <- c(mean(d[,1]), mean(d[,2]))
                                 #mat[i,j] <- mahalanobis(d,m,c)
+                              },
+                              "dtw"={
+                                dtwDistance(data.mat$c1, data.mat$c2)
+                              },
+                              "edr"={
+                                edrDistance(data.mat$c1, data.mat$c2, epsilon=0.1)#, sigma)
+                              },
+                              "erp"={
+                                erpDistance(data.mat$c1, data.mat$c2, g=0)
+                              },
+                              "lcss"={
+                                lcssDistance(data.mat$c1, data.mat$c2, epsilon=0.1)
                               }
       )
     }
