@@ -265,6 +265,7 @@ predict.all.combination <- function(){
       #generate.seq.matrix()
     }
     else{
+      aggr.cluster.size <<- combi
       indxcombicnt <<- 0
       aggr.mat.size <<- 0
       pow.aggrdata10 <<- ff(NA, dim=data.len, vmode="double")

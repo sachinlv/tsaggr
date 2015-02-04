@@ -98,7 +98,7 @@ predict.pow <- function(siteno,indx) {
                  mu_max=1e10,
                  change = 0.01,
                  neurons=window.size,
-                 normalize=TRUE,
+                 normalize=FALSE,
                  verbose=FALSE,
                  Monte_Carlo = FALSE)
 

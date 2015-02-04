@@ -3,39 +3,44 @@ require(ff)
 require(RSNNS)
 require(TSdist)
 
-table.ip.type <- "specific"#"random"
-results.file.path <-'/home/freak/Dropbox/results/specific_sites/texas/'
-plot.file.path <- '/home/freak/Programming/Thesis/results/plots/specific_sites/texas/'
-combination.file.path <- '/home/freak/Programming/Thesis/results/plots/specific_sites/texas/combination/'
+table.ip.type <- "random"#"specific"
+#results.file.path <-'/home/freak/Dropbox/results/specific_sites/texas/'
+#plot.file.path <- '/home/freak/Programming/Thesis/results/plots/specific_sites/texas/'
+#combination.file.path <- '/home/freak/Programming/Thesis/results/plots/specific_sites/texas/combination/'
+results.file.path <-'/home/freak/Dropbox/results/random_sites/'
+plot.file.path <- '/home/freak/Programming/Thesis/results/plots/random_sites/'
+combination.file.path <- '/home/freak/Programming/Thesis/results/plots/random_sites/combination/'
+
 
 if(table.ip.type == "random"){
-tables <- c('onshore_SITE_00002',
-            'onshore_SITE_00003',
-            'onshore_SITE_00004',
-            'onshore_SITE_00005',
-            'onshore_SITE_00006',
-            'onshore_SITE_00007',
-            'onshore_SITE_00008',
-            'onshore_SITE_00012',
-            'onshore_SITE_00013',
-            'onshore_SITE_00014')
+      t <- c('onshore_SITE_00002',
+             'onshore_SITE_00003',
+             'onshore_SITE_00004',
+             'onshore_SITE_00005',
+             'onshore_SITE_00006',
+             'onshore_SITE_00007',
+             'onshore_SITE_00008',
+             'onshore_SITE_00012',
+             'onshore_SITE_00013',
+             'onshore_SITE_00014')
+      tables <<- data.frame(cbind(numeric(0),t))
 }else{
-  t <- c("onshore_SITE_00538",
-         "onshore_SITE_00366",
-         "onshore_SITE_00623",
-         "onshore_SITE_00418",
-         "onshore_SITE_00627",
-         "onshore_SITE_00532",
-         "onshore_SITE_00499",
-         "onshore_SITE_00571",
-         "onshore_SITE_03247",
-         "onshore_SITE_00622")
-  tables <<- data.frame(cbind(numeric(0),t))
+      t <- c("onshore_SITE_00538",
+             "onshore_SITE_00366",
+             "onshore_SITE_00623",
+             "onshore_SITE_00418",
+             "onshore_SITE_00627",
+             "onshore_SITE_00532",
+             "onshore_SITE_00499",
+             "onshore_SITE_00571",
+             "onshore_SITE_03247",
+             "onshore_SITE_00622")
+      tables <<- data.frame(cbind(numeric(0),t))
 }
 
 
 sites.count <- 10
-data.len <- 52560
+data.len <-7200 #52560
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 powdata.normalized <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 threshold.rmse <<- 0.3
@@ -44,20 +49,21 @@ drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
 
 algo.vec <<- c('neuralnet','brnn','gbm')
-simi.meas.vec <<- c('euclidean',
-                   'minkowski',
-                   'manhattan',
-                   'fourier',
-                   'correlation',
-                   'pca')
+#simi.meas.vec <<- c('euclidean',
+#                   'minkowski',
+#                   'manhattan',
+#                   'fourier',
+#                   'correlation',
+#                   'pca')
+simi.meas.vec <<- c('lcss')#c('erp')#c('dtw')#c('edr')
 
 setvals <- function(algorithm, measure, type){
   algo <<- algorithm
   sim.meas <<- measure
   ip.type <<- type#'statistical'
   combination.result <<- c()
-  file.path.single <<- paste(results.file.path,algo,'_shortterm_simple/',sep="")
-  file.path.all <<- paste(results.file.path,algo,'_shortterm_aggr/all/',sep="")
+  #file.path.single <<- paste(results.file.path,algo,'_shortterm_simple/',sep="")
+  file.path.all <<- paste(results.file.path,algo,'_shortterm_aggr/',sep="")
   plot.file <<- paste(plot.file.path,
                      algo,'_',
                      ip.type,'_',
@@ -67,7 +73,7 @@ setvals <- function(algorithm, measure, type){
                        ip.type,'_',
                        sim.meas,'.csv',sep="")
 
-  file.name.single <<- paste(algo,'_shortterm_simple.csv',sep="")
+  #file.name.single <<- paste(algo,'_shortterm_simple.csv',sep="")
   file.name.all <<- paste(algo,'_shortterm_aggr_combi',sep="")
 }
 
@@ -76,7 +82,7 @@ load.data <- function(){
   for(indx in seq(1,sites.count)){
     tab <- as.character(tables[indx,1])
     print(paste("Loading from table :: ", tab))
-    query <- paste(" select pow from ", tab, " WHERE (mesdt >= 20060101 && mesdt < 20070101) LIMIT ", data.len, ";")
+    query <- paste(" select pow from ", tab, " WHERE (mesdt >= 20061112 && mesdt < 20070101) LIMIT ", data.len, ";")
     data06 <- data.frame(dbGetQuery(con,statement=query), check.names=FALSE)
     powdata[,indx] <<- as.double(data06[,1])
     powdata.normalized[,indx] <<- normalizeData(as.vector(data06[,1]),type="0_1")
@@ -86,20 +92,20 @@ load.data <- function(){
 load.err.data <- function(file.no){
   rmse <<- c()
 
-  if(file.no==1){
-    file <- file.name.single
-    err.tbl <- read.csv(file,sep = ',')
-    err <- err.tbl$rmse
-    rmse <<- data.frame(err)
-  }
-  else{
+#  if(file.no==1){
+#    file <- file.name.single
+#    err.tbl <- read.csv(file,sep = ',')
+#    err <- err.tbl$rmse
+#    rmse <<- data.frame(err)
+#  }
+#  else{
     file <- paste(file.name.all,file.no,'.csv', sep="")
     err.tbl <- read.csv(file,sep = ',')
     seq <- err.tbl$AggrNo.Seq
     err <- err.tbl$rmse
     seq <- gsub("10","0",seq)#Replace 10 with 0 in vector
     rmse <<- data.frame(seq,err)
-  }
+#  }
 }
 
 
@@ -107,7 +113,6 @@ gen.dist.mat <- function(aggr.seq){
   len <- length(aggr.seq)
   mat <- matrix(0,nrow=len, ncol=len)
   print(aggr.seq)
-
 
   for(i in seq(1,len)){
     for(j in seq(1, len)){
@@ -147,6 +152,18 @@ gen.dist.mat <- function(aggr.seq){
                     #c <- cov(d[,1:2])#,method=c("pearson"))
                     #m <- c(mean(d[,1]), mean(d[,2]))
                     #mat[i,j] <- mahalanobis(d,m,c)
+                  },
+                  "dtw"={
+                    dtwDistance(data.mat$c1, data.mat$c2)
+                  },
+                  "edr"={
+                    edrDistance(data.mat$c1, data.mat$c2, epsilon=0.1)#, sigma)
+                  },
+                  "erp"={
+                    erpDistance(data.mat$c1, data.mat$c2, g=0)
+                  },
+                  "lcss"={
+                    lcssDistance(data.mat$c1, data.mat$c2, epsilon=0.1)
                   }
              )
     }
@@ -200,21 +217,21 @@ plot.for.algo <- function(){
   setwd(file.path.single)
   load.err.data(1)
   data.to.plot <- rmse$err
-  plot(data.to.plot,
-       type="p",
-       ylim=c(0,1),
-       col="red",
-       xlab=paste("Individuals"),
-       ylab="Rmse vals",
-       main="Individuals")
-  legend("topright",
-         legend=c("rmse"),
-         col=c("red"),
-         text.col=c("red"))
+  #plot(data.to.plot,
+  #     type="p",
+  #     ylim=c(0,1),
+  #     col="red",
+  #     xlab=paste("Individuals"),
+  #     ylab="Rmse vals",
+  #     main="Individuals")
+  #legend("topright",
+  #       legend=c("rmse"),
+  #       col=c("red"),
+  #       text.col=c("red"))
 
-  #plot2-10
+  #plot1-10
   setwd(file.path.all)
-  for(i in seq(2,3)){
+  for(i in seq(1,3)){
     load.err.data(i)
     data.to.plot <- get.err.dist.data()
     #typ <- if(i == 10) 'p' else 'l'
@@ -250,6 +267,7 @@ plot.all <- function(){
 }
 
 plot.all()
+
 
 #PCA-test
 mat <- as.matrix(powdata[,1:10])

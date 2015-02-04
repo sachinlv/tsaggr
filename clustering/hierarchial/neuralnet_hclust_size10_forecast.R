@@ -7,7 +7,7 @@ require(ftsa)
 
 history.length <- 50
 sites.count <- 10
-data.len <- 52560
+data.len <- 7200#52560
 data.len.day <<- 144
 mat.size <<- 365
 window.size <- 10
@@ -60,7 +60,8 @@ loaddata <- function(){
   for(indx in seq(1,sites.count)){
     tab <- as.character(tables[indx,1])
     print(paste("Loading from table :: ", tab))
-    query <- paste(" select pow from ", tab, " WHERE (mesdt >= 20060101 && mesdt < 20070101) LIMIT ", data.len, ";")
+    #query <- paste(" select pow from ", tab, " WHERE (mesdt >= 20060101 && mesdt < 20070101) LIMIT ", data.len, ";")
+    query <- paste(" select pow from ", tab, " WHERE (mesdt >= 20061112 && mesdt < 20070101) LIMIT ", data.len, ";")
     data06 <- data.frame(dbGetQuery(con,statement=query), check.names=FALSE)
     powdata[,indx] <<- as.double(data06[,1])
     powdata.normalized[,indx] <<- normalizeData(as.vector(data06[,1]), type="0_1")
@@ -260,7 +261,7 @@ prediction.error <- function(cut.size,max.clust.size){
 }
 
 predict.for.aggrdata <- function(cut.size,max.clust.size){
-  slide.indx <- data.len - (history.length * data.len.day) + 1
+  slide.indx <- 1#data.len - (history.length * data.len.day) + 1
   train.data <<- c()
   test.data <<- c()
   test.data.denorm <<- c()

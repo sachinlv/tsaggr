@@ -15,7 +15,7 @@ history.length <- 50
 hidden.nodes <<- 10#c(round(window.size/2), window.size,1)
 window.size <- 1440
 train.data.percent <- 0.7
-file.name <- "nerualnet_shortterm_windspeed_simple.csv"
+file.name <- "neuralnet_shortterm_windspeed_simple.csv"
 file.path <- "/home/freak/Programming/Thesis/results/results/neuralnet_shortterm_windspeed_simple/"
 table.ip.type <- "specific"#"random"
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
