@@ -7,9 +7,9 @@ table.ip.type <- "random"#"specific"
 #results.file.path <-'/home/freak/Dropbox/results/specific_sites/texas/'
 #plot.file.path <- '/home/freak/Programming/Thesis/results/plots/specific_sites/texas/'
 #combination.file.path <- '/home/freak/Programming/Thesis/results/plots/specific_sites/texas/combination/'
-results.file.path <-'/home/freak/Dropbox/results/random_sites/'
-plot.file.path <- '/home/freak/Programming/Thesis/results/plots/random_sites/'
-combination.file.path <- '/home/freak/Programming/Thesis/results/plots/random_sites/combination/'
+results.file.path <-'/home/freak/Dropbox/results/history50/random_sites/'
+plot.file.path <- '/home/freak/Programming/Thesis/results/plots/history50/aggregation/random_sites/'
+combination.file.path <- '/home/freak/Programming/Thesis/results/plots/history50/aggregation/random_sites/combination/'
 
 
 if(table.ip.type == "random"){
@@ -49,13 +49,19 @@ drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
 
 algo.vec <<- c('neuralnet','brnn','gbm')
-#simi.meas.vec <<- c('euclidean',
-#                   'minkowski',
-#                   'manhattan',
-#                   'fourier',
-#                   'correlation',
-#                   'pca')
-simi.meas.vec <<- c('lcss')#c('erp')#c('dtw')#c('edr')
+simi.meas.vec <<- c(
+                   #'euclidean',
+                   #'minkowski',
+                   #'manhattan',
+                   #'fourier',
+                   #'correlation',
+                   #'pca'
+                   #'lcss',
+                   'erp'
+                   #'dtw'
+                   #'edr'
+                   )
+#simi.meas.vec <<- c('lcss')#c('erp')#c('dtw')#c('edr')
 
 setvals <- function(algorithm, measure, type){
   algo <<- algorithm
@@ -109,7 +115,65 @@ load.err.data <- function(file.no){
 }
 
 
-gen.dist.mat <- function(aggr.seq){
+gen.dist.mat <- function(measure){
+  dist.mat <<- matrix(0, nrow=sites.count, ncol=sites.count)
+  for(i in seq(1,sites.count)){
+    for(j in seq(1, sites.count)){
+      data.mat <- data.frame(c1=powdata[,i], c2=powdata[,j])
+
+      dist.mat[i,j] <<- switch(measure,
+                          "pca"={
+                            f <- formula("~ c1 + c2")
+                            pc <- princomp(f,data=data.mat, cor=FALSE)
+                            score <- data.frame(pc$scores)
+                            euclideanDistance(score$Comp.1,score$Comp.2)
+                          },
+                          "euclidean"={
+                            euclideanDistance(data.mat$c1,data.mat$c2)
+                          },
+                          "correlation"={
+                            correlationDistance(data.mat$c1,data.mat$c2)
+                          },
+                          "manhattan"={
+                            manhattanDistance(data.mat$c1,data.mat$c2)
+                          },
+                          "minkowski"={
+                            minkowskiDistance(data.mat$c1,data.mat$c2,2)
+                          },
+                          "fourier"={
+                            fourierDistance(data.mat$c1,data.mat$c2,n=(floor(length(data.mat$c1)/2)+1))
+                          },
+                          "mean"={
+                            abs(mean(data.mat$c1-data.mat$c2))
+                          },
+                          "mahalanobis"={
+                            d <- matrix(NA,nrow=52560,ncol=2)
+                            #d[,1] <- powdata[,i1]
+                            #d[,2] <- powdata[,j1]
+                            #c <- cov(d[,1:2])#,method=c("pearson"))
+                            #m <- c(mean(d[,1]), mean(d[,2]))
+                            #mat[i,j] <- mahalanobis(d,m,c)
+                          },
+                          "dtw"={
+                            dtwDistance(data.mat$c1, data.mat$c2)
+                          },
+                          "edr"={
+                            edrDistance(data.mat$c1, data.mat$c2, epsilon=0.1)#, sigma)
+                          },
+                          "erp"={
+                            erpDistance(data.mat$c1, data.mat$c2, g=0)
+                          },
+                          "lcss"={
+                            lcssDistance(data.mat$c1, data.mat$c2, epsilon=0.1)
+                          }
+                 )
+    }
+  }
+  #print(mat)
+  #return(mat)
+}
+
+get.distance.mat <- function(aggr.seq){
   len <- length(aggr.seq)
   mat <- matrix(0,nrow=len, ncol=len)
   print(aggr.seq)
@@ -118,60 +182,11 @@ gen.dist.mat <- function(aggr.seq){
     for(j in seq(1, len)){
       i1 <- aggr.seq[i]
       j1 <- aggr.seq[j]
-      data.mat <- data.frame(c1=powdata[,i1], c2=powdata[,j1])
-
-      mat[i,j] <- switch(sim.meas,
-                  "pca"={
-                    f <- formula("~ c1 + c2")
-                    pc <- princomp(f,data=data.mat, cor=FALSE)
-                    score <- data.frame(pc$scores)
-                    euclideanDistance(score$Comp.1,score$Comp.2)
-                  },
-                  "euclidean"={
-                    euclideanDistance(data.mat$c1,data.mat$c2)
-                  },
-                  "correlation"={
-                    correlationDistance(data.mat$c1,data.mat$c2)
-                  },
-                  "manhattan"={
-                    manhattanDistance(data.mat$c1,data.mat$c2)
-                  },
-                  "minkowski"={
-                    minkowskiDistance(data.mat$c1,data.mat$c2,2)
-                  },
-                  "fourier"={
-                    fourierDistance(data.mat$c1,data.mat$c2,n=(floor(length(data.mat$c1)/2)+1))
-                  },
-                  "mean"={
-                    abs(mean(data.mat$c1-data.mat$c2))
-                  },
-                  "mahalanobis"={
-                    d <- matrix(NA,nrow=52560,ncol=2)
-                    #d[,1] <- powdata[,i1]
-                    #d[,2] <- powdata[,j1]
-                    #c <- cov(d[,1:2])#,method=c("pearson"))
-                    #m <- c(mean(d[,1]), mean(d[,2]))
-                    #mat[i,j] <- mahalanobis(d,m,c)
-                  },
-                  "dtw"={
-                    dtwDistance(data.mat$c1, data.mat$c2)
-                  },
-                  "edr"={
-                    edrDistance(data.mat$c1, data.mat$c2, epsilon=0.1)#, sigma)
-                  },
-                  "erp"={
-                    erpDistance(data.mat$c1, data.mat$c2, g=0)
-                  },
-                  "lcss"={
-                    lcssDistance(data.mat$c1, data.mat$c2, epsilon=0.1)
-                  }
-             )
+      mat[i,j] <- dist.mat[i1,j1]
     }
   }
-  #print(mat)
   return(mat)
 }
-
 
 get.err.dist.data <- function(){
   avg.dist <- c()
@@ -180,12 +195,16 @@ get.err.dist.data <- function(){
     seq <- as.integer(seq[2:length(seq)]) #remove S from sequence
     seq <- replace(seq,seq==0,10)#replace 0 back to 10
     diag.len <- row.len <- col.len <- length(seq)
-    dist.mat <- gen.dist.mat(seq)
-    #dist.mat[upper.tri(dist.mat,diag=TRUE)] <- 0
-    #lower.tri.cnt <- ((row.len*col.len)-diag.len)/2
-    #dist <- sum(dist.mat)/lower.tri.cnt
-    dist <- sum(dist.mat)/((row.len*col.len)-diag.len)
-    avg.dist <- c(avg.dist,dist)
+    if(length(seq)>1){
+      dist.mat <- get.distance.mat(seq)
+      #dist.mat[upper.tri(dist.mat,diag=TRUE)] <- 0
+      #lower.tri.cnt <- ((row.len*col.len)-diag.len)/2
+      #dist <- sum(dist.mat)/lower.tri.cnt
+      dist <- sum(dist.mat)/((row.len*col.len)-diag.len)
+      avg.dist <- c(avg.dist,dist)
+    }else{
+      avg.dist <- 0
+    }
   }
 
   if(length(avg.dist) == 1){
@@ -257,50 +276,19 @@ plot.for.algo <- function(){
 plot.all <- function(){
   typ <- 'statistical'
   load.data()
-  for(alg in algo.vec){
-    for(mes in simi.meas.vec){
+  for(mes in simi.meas.vec){
+    gen.dist.mat(mes)
+    for(alg in algo.vec){
       setvals(alg,mes,typ)
       plot.for.algo()
-      break
+      #break
     }
+
   }
 }
 
 plot.all()
 
 
-#PCA-test
-mat <- as.matrix(powdata[,1:10])
-colnames(mat) <- c(paste('c',seq(1,10),sep=""))
-f <- formula("~ c1 + c2")
-
-
-a <- prcomp(f,data=data.frame(mat))
-p <- a$x
-#or
-b <- princomp( f,data=data.frame(mat), cor=FALSE)
-p <- b$scores
-
-o <- p[,1:2]
-o <- as.matrix(o)
-head(o)
-head(mat[,1:2])
-dist.mat <- matrix(NA,nrow=2,ncol=2)
-for(i in seq(1,2)){
-  for(j in seq(1,2)){
-    dist.mat[i,j] <- euclideanDistance(o[,i] , o[,j])
-  }
-}
-dist.mat
-euclideanDistance(o[,1],o[,5])
-?princomp
-?euclideanDistance
-?dist
-
-su <- (o[,1]-o[,2])^2
-sum(su)
-s <- 0
-for(i in su){
-  s <- s + i
-  print(s)
-}
+d <- as.dist(dist.mat)
+d
