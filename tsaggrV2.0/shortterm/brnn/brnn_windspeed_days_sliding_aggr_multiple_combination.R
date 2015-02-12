@@ -7,7 +7,7 @@ require(ppls)
 require(combinat)
 require(RSNNS)
 require(ftsa)
-
+require(zoo)
 
 history.length <- 50
 sites.count <- 10
@@ -19,6 +19,10 @@ window.size <- 1440
 train.data.percent <- 0.7
 #slide.count <- mat.size-window.size+1
 filepath <<- '/home/freak/Programming/Thesis/results/results/brnn_shortterm_windspeed_aggr/all/'
+file.name.generic <<- 'brnn_shortterm_windspeed_aggr_combi'
+file.name.denorm.generic <<- 'brnn_shortterm_windspeed_aggr_combi_denorm'
+file.name.aggr.generic <<- 'brnn_shortterm_windspeed_aggr_combi_aggr'
+file.name.aggr.denorm.generic <<- 'brnn_shortterm_windspeed_aggr_combi_aggr_denorm'
 
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 winddata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
@@ -60,12 +64,14 @@ loaddata <- function(){
   }
 }
 
-#generate.seq.matrix <- function(){
-#  mat <- as.matrix(combn(sites.count, aggr.cluster.size)) #generating different combination
-#  len <- length(mat[1,])
-#  indxseq <- seq(1,len)#sample(1:len, indxcombicnt)
-#  indxcombimat <<- mat[,indxseq]
-#}
+aggr.timeseries <- function(vec){
+  vec <- vec[1:(length(vec)-2)]
+  len <- length(vec)/4
+  aggr.indx <-rep(c(seq(1,len)),each=4)
+  x <- as.zoo(vec)
+  aggr <- as.numeric(aggregate(x,by=aggr.indx, FUN="mean"))
+  return(aggr)
+}
 
 gen.aggrdata <- function(){
   col.names <- c()
@@ -133,13 +139,7 @@ predict.pow <- function(aggrno, indx) {
     train.indx <- floor(window.size *  train.data.percent)
     test.indx <- train.indx + 1
     window.slide <- window.size - train.indx
-    #y.train <- y[1:train.indx]
-    #x.train <- x[1:train.indx]
-    #y.test <- y[test.indx:window.size]
-    #x.test <- x[test.indx:window.size]
 
-    #trn.data <- data.frame(y.train,x.train)
-    #f = as.formula("y.train ~ x.train ")
     trn.data <- data.frame(dat[1:train.indx,])
     tst.x <- data.frame(x=dat$x[test.indx:window.size])
     tst.y <- data.frame(y=dat$y[test.indx:window.size])
@@ -168,25 +168,24 @@ predict.pow <- function(aggrno, indx) {
     indx.start <<- indx.start + window.slide
     indx.end <<- indx.start + window.size
     count <- count + 1
-    if(count == 10){
-      break
-    }
+    #if(count == 10){
+    #  break
+    #}
   }
 
   train.data <<- cbind(train.data, data.train)
   test.data <<-  cbind(test.data, data.test)
   output <<- cbind(output, data.out)
-  if(aggr.cluster.size == 1){
-    test.data.denorm <<- cbind(test.data.denorm, as.vector(denormalizeData(data.test,pow.normParms)))
-    output.denorm <<- cbind(output.denorm, as.vector(denormalizeData(data.out, pow.normParms)))
-  }
+  #if(aggr.cluster.size == 1){
+  test.data.denorm <<- cbind(test.data.denorm, as.vector(denormalizeData(data.test,pow.normParms)))
+  output.denorm <<- cbind(output.denorm, as.vector(denormalizeData(data.out, pow.normParms)))
+  #}
 }
 
 
 predict.for.combination <- function(){
   slide.indx <- data.len - (history.length * data.len.day) + 1
-  #loaddata()
-  #generate.seq.matrix()
+
   gen.aggrdata()
   if(aggr.mat.size != 0){
     for(aggr.indx in seq(1,aggr.mat.size)){
@@ -197,77 +196,224 @@ predict.for.combination <- function(){
   else{
     predict.pow(0,slide.indx)
   }
+}
 
+measure.error <- function(pred,test){
+  err.rmse <- error(forecast=pred, true=test,method="rmse")
+  err.mape <- error(forecast=pred, true=test,method="mape")
+  err.mae <- error(forecast=pred, true=test,method="mae")
+  err.mse <- error(forecast=pred, true=test,method="mse")
+
+  return(c(err.rmse, err.mape, err.mae, err.mse))
 }
 
 prediction.error <- function(){
   parm.count <- 5
-  file.name <- paste('brnn_shortterm_windspeed_aggr_combi',aggr.cluster.size,'.csv',sep="")
+  #file.name <- paste(file.name.generic, aggr.cluster.size,'.csv',sep="")
+  #file.name.denorm <- paste(file.name.denorm.generic, aggr.cluster.size,'.csv',sep="")
   setwd(filepath)
+  col.names <- c("AggrNo.Seq","rmse", "mape", "mae", "mse")
+  input.data.type <- c("norm","denorm", "aggrnorm", "aggrdenorm")
 
-  if(aggr.cluster.size == 1){
-    err.data <<- matrix(0,nrow=1,ncol=parm.count, byrow=TRUE)
-    colnames(err.data) <<- c("AggrNo.Seq","rmse", "mape", "sse", "mse")
-    col.name <- paste('S',paste(seq(1,aggr.cluster.size), collapse=""), sep="")
-    site.name <- col.name
-    test <- rowSums(test.data.denorm[,1:aggr.mat.size])
-    test <- normalizeData(test, type="0_1")
-    pred <- rowSums(output.denorm[,1:aggr.mat.size])
-    pred <- normalizeData(pred, type="0_1")
-    err.rmse <- error(forecast=pred, true=test,method="rmse")
-    err.mape <- error(forecast=pred, true=test,method="mape")
-    err.sse <- error(forecast=pred, true=test,method="sse")
-    err.mse <- error(forecast=pred, true=test,method="mse")
-    err.data[1,] <<- c(site.name, err.rmse, err.mape, err.sse, err.mse)
+  for(type in input.data.type){
+    if(aggr.cluster.size == 1){
+      err.data <- matrix(0,nrow=1,ncol=parm.count, byrow=TRUE)
+      file.name <- ''
+      colnames(err.data) <- col.names
+      site.name <- paste('S',paste(seq(1,aggr.cluster.size), collapse=""), sep="")
+      test <- rowSums(test.data.denorm[,1:aggr.mat.size])
+      pred <- rowSums(output.denorm[,1:aggr.mat.size])
 
-    write.csv(err.data, file=file.name)
+      err.data[1,] <- switch(type,
+                             "norm"={
+                               test <- normalizeData(test, type="0_1")
+                               pred <- normalizeData(pred, type="0_1")
+                               err <- measure.error(pred,test)
+                               file.name <- paste(file.name.generic, aggr.cluster.size,'.csv',sep="")
+                               c(site.name,err)
+                             },
+                             "denorm"={
+                               err <- measure.error(pred,test)
+                               file.name <- paste(file.name.denorm.generic, aggr.cluster.size,'.csv',sep="")
+                               c(site.name, err)
+                             },
+                             "aggrnorm"={
+                               test <- normalizeData(test, type="0_1")
+                               pred <- normalizeData(pred, type="0_1")
+                               test <- aggr.timeseries(test)
+                               pred <- aggr.timeseries(pred)
+                               err <- measure.error(pred, test)
+                               file.name <- paste(file.name.aggr.generic,aggr.cluster.size,'.csv',sep="")
+                               c(site.name, err)
+                             },
+                             "aggrdenorm"={
+                               test <- aggr.timeseries(test)
+                               pred <- aggr.timeseries(pred)
+                               err <- measure.error(pred,test)
+                               file.name <- paste(file.name.aggr.denorm.generic,aggr.cluster.size,'.csv',sep="")
+                               c(site.name, err)
+                             }
+      )
+      write.csv(err.data, file=file.name)
 
-  }else if(aggr.cluster.size>1 && aggr.cluster.size < sites.count){
-    err.data <<- matrix(0,nrow=indxcombicnt, ncol=parm.count, byrow=TRUE)
-    colnames(err.data) <<- c("AggrNo.Seq","rmse", "mape", "sse", "mse")
-    col.names <- colnames(pow.aggrdata)
-    for(site in seq(1:(aggr.mat.size))){
-      site.name <- col.names[site]
-      test <- test.data[,site]
-      pred <- output[,site]
-      err.rmse <- error(forecast=pred, true=test,method="rmse")
-      err.mape <- error(forecast=pred, true=test,method="mape")
-      err.sse <- error(forecast=pred, true=test,method="sse")
-      err.mse <- error(forecast=pred, true=test,method="mse")
-      err.data[site,] <<- c(site.name, err.rmse, err.mape, err.sse, err.mse)
-      #break
+    }else if(aggr.cluster.size>1 && aggr.cluster.size < sites.count){
+      err.data <- matrix(0,nrow=indxcombicnt, ncol=parm.count, byrow=TRUE)
+      colnames(err.data) <- col.names
+      site.names <- colnames(pow.aggrdata)
+
+      for(site in seq(1:(aggr.mat.size))){
+        site.name <- site.names[site]
+
+        err.data[site,] <- switch(type,
+                                  "norm"={
+                                    test <- test.data[,site]
+                                    pred <- output[,site]
+                                    err <- measure.error(pred,test)
+                                    file.name <- paste(file.name.generic, aggr.cluster.size,'.csv',sep="")
+                                    c(site.name, err)
+                                  },
+                                  "denorm"={
+                                    test.denorm <- test.data.denorm[,site]
+                                    pred.denorm <- output.denorm[,site]
+                                    err <- measure.error(pred.denorm, test.denorm)
+                                    file.name <- paste(file.name.denorm.generic, aggr.cluster.size,'.csv',sep="")
+                                    c(site.name, err)
+                                  },
+                                  "aggrnorm"={
+                                    test <- aggr.timeseries(test.data[,site])
+                                    pred <- aggr.timeseries(output[,site])
+                                    err <- measure.error(pred, test)
+                                    file.name <- paste(file.name.aggr.generic,aggr.cluster.size,'.csv',sep="")
+                                    c(site.name, err)
+                                  },
+                                  "aggrdenorm"={
+                                    test <- aggr.timeseries(test.data.denorm[,site])
+                                    pred <- aggr.timeseries(output.denorm[,site])
+                                    err <- measure.error(pred,test)
+                                    file.name <- paste(file.name.aggr.denorm.generic,aggr.cluster.size,'.csv',sep="")
+                                    c(site.name, err)
+                                  }
+        )
+        write.csv(err.data, file=file.name)
+      }
+
+    }else{
+      err.data <- matrix(0,nrow=1,ncol=parm.count, byrow=TRUE)
+      colnames(err.data) <- col.names
+      site.name <- paste('S',paste(seq(1,aggr.cluster.size), collapse=""), sep="")
+
+      err.data[1,] <- switch(type,
+                             "norm"={
+                               test <- test.data[,1]
+                               pred <- output[,1]
+                               err <- measure.error(pred, test)
+                               file.name <- paste(file.name.generic, aggr.cluster.size,'.csv',sep="")
+                               c(site.name, err)
+                             },
+                             "denorm"={
+                               test.denorm <- test.data.denorm[,1]
+                               pred.denorm <- output.denorm[,1]
+                               err <- measure.error(pred.denorm, test.denorm)
+                               file.name <- paste(file.name.denorm.generic, aggr.cluster.size,'.csv',sep="")
+                               c(site.name, err)
+                             },
+                             "aggrnorm"={
+                               test <- aggr.timeseries(test.data[,1])
+                               pred <- aggr.timeseries(output[,1])
+                               err <- measure.error(pred, test)
+                               file.name <- paste(file.name.aggr.generic,aggr.cluster.size,'.csv',sep="")
+                               c(site.name, err)
+                             },
+                             "aggrdenorm"={
+                               test <- aggr.timeseries(test.data.denorm[,1])
+                               pred <- aggr.timeseries(output.denorm[,1])
+                               err <- measure.error(pred,test)
+                               file.name <- paste(file.name.aggr.denorm.generic,aggr.cluster.size,'.csv',sep="")
+                               c(site.name, err)
+                             })
+      write.csv(err.data, file=file.name)
     }
-    write.csv(err.data, file=file.name)
-  }
-  else{
-    err.data <<- matrix(0,nrow=1,ncol=parm.count, byrow=TRUE)
-    colnames(err.data) <<- c("AggrNo.Seq","rmse", "mape", "sse", "mse")
-    col.name <- paste('S',paste(seq(1,aggr.cluster.size), collapse=""), sep="")
-    site.name <- col.name
-    test <- test.data[,1]
-    pred <- output[,1]
-    err.rmse <- error(forecast=pred, true=test,method="rmse")
-    err.mape <- error(forecast=pred, true=test,method="mape")
-    err.sse <- error(forecast=pred, true=test,method="sse")
-    err.mse <- error(forecast=pred, true=test,method="mse")
-    err.data[1,] <<- c(site.name, err.rmse, err.mape, err.sse, err.mse)
-
-    write.csv(err.data, file=file.name)
   }
 
+  #if(aggr.cluster.size == 1){
+  #  err.data <<- matrix(0,nrow=1,ncol=parm.count, byrow=TRUE)
+  #  colnames(err.data) <<- col.names
+  #  col.name <- paste('S',paste(seq(1,aggr.cluster.size), collapse=""), sep="")
+  #  site.name <- col.name
+  #  test <- rowSums(test.data.denorm[,1:aggr.mat.size])
+  #  test <- normalizeData(test, type="0_1")
+  #  pred <- rowSums(output.denorm[,1:aggr.mat.size])
+  #  pred <- normalizeData(pred, type="0_1")
+  #  err <- measure.error(pred,test)
+  #  err.data[1,] <<- c(site.name,err)
+
+  #  write.csv(err.data, file=file.name)
+
+  #  err.data.denorm <<- matrix(0,nrow=1,ncol=parm.count, byrow=TRUE)
+  #  colnames(err.data.denorm) <<- col.names
+  #  test.denorm <- rowSums(test.data.denorm[,1:aggr.mat.size])
+  #  pred.denorm <- rowSums(output.denorm[,1:aggr.mat.size])
+  #  err <- measure.error(pred.denorm, test.denorm)
+  #  err.data.denorm[1,] <<- c(site.name, err)
+  #  write.csv(err.data.denorm, file=file.name.denorm)
+
+  #}else if(aggr.cluster.size>1 && aggr.cluster.size < sites.count){
+  #  err.data <<- matrix(0,nrow=indxcombicnt, ncol=parm.count, byrow=TRUE)
+  #  err.data.denorm <<- matrix(0,nrow=indxcombicnt,ncol=parm.count, byrow=TRUE)
+
+  #  colnames(err.data) <<- col.names
+  #  colnames(err.data.denorm) <<- col.names
+  #  col.names <- colnames(aggrdata)
+  #  for(site in seq(1:(aggr.mat.size))){
+  #    site.name <- col.names[site]
+  #    test <- test.data[,site]
+  #    pred <- output[,site]
+  #    err <- measure.error(pred,test)
+  #    err.data[site,] <<- c(site.name, err)
+
+  #    test.denorm <- test.data.denorm[,site]
+  #    pred.denorm <- output.denorm[,site]
+
+  #    err <- measure.error(pred.denorm, test.denorm)
+  #    err.data.denorm[site,] <<- c(site.name, err)
+  #  }
+  #  write.csv(err.data, file=file.name)
+  #  write.csv(err.data.denorm, file=file.name.denorm)
+  #}
+  #else{
+  #    err.data <<- matrix(0,nrow=1,ncol=parm.count, byrow=TRUE)
+  #    colnames(err.data) <<- col.names
+  #    col.name <- paste('S',paste(seq(1,aggr.cluster.size), collapse=""), sep="")
+  #    site.name <- col.name
+  #    test <- test.data[,1]
+  #    pred <- output[,1]
+  #    err <- measure.error(pred, test)
+  #    err.data[1,] <<- c(site.name, err)
+
+  #    write.csv(err.data, file=file.name)
+
+  #    err.data.denorm <<- matrix(0,nrow=1,ncol=parm.count, byrow=TRUE)
+  #    colnames(err.data.denorm) <<- col.names
+  #    test.denorm <- test.data.denorm[,1]
+  #    pred.denorm <- output.denorm[,1]
+  #    err <- measure.error(pred.denorm, test.denorm)
+  #    err.data.denorm[1,] <<- c(site.name, err)
+  #    write.csv(err.data.denorm, file=file.name.denorm)
+
+  #}
 }
+
+
 predict.all.combination <- function(){
   loaddata()
   for(combi in seq(1,10)){#sites.count
-    aggr.cluster.size <<- combi
     if(combi != sites.count){
+      aggr.cluster.size <<- combi
       indxcombicnt <<-length(combn(sites.count,combi)[1,])
       aggr.mat.size <<- indxcombicnt
       pow.aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
       wind.aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
-      #indxcombimat <<- ff(NA, dim=c(combi,indxcombicnt),vmode="integer")
       indxcombimat <<- as.matrix(combn(sites.count, aggr.cluster.size))
-      #generate.seq.matrix()
     }else{
       aggr.cluster.size <<- combi
       indxcombicnt <<- 0
@@ -289,20 +435,3 @@ predict.all.combination <- function(){
 }
 
 predict.all.combination()
-
-#plotting
-length(test.data[,1])
-x1 = train.data[,1]
-x2 = test.data[,1]
-y = output[,1]
-length(y)
-plot(x2, type="l")
-
-dataToPlot = data.frame(seq(1,440),x2, y)
-Line <- gvisLineChart(dataToPlot)
-plot(Line)
-
-
-#error measure
-err <- error(forecast=y, true=x2,method="mape")
-err
