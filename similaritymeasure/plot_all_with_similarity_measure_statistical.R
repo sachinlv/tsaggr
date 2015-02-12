@@ -4,12 +4,10 @@ require(RSNNS)
 require(TSdist)
 
 table.ip.type <- "random"#"specific"
-#results.file.path <-'/home/freak/Dropbox/results/specific_sites/texas/'
-#plot.file.path <- '/home/freak/Programming/Thesis/results/plots/specific_sites/texas/'
-#combination.file.path <- '/home/freak/Programming/Thesis/results/plots/specific_sites/texas/combination/'
-results.file.path <-'/home/freak/Dropbox/results/history50/random_sites/'
-plot.file.path <- '/home/freak/Programming/Thesis/results/plots/history50/aggregation/random_sites/'
-combination.file.path <- '/home/freak/Programming/Thesis/results/plots/history50/aggregation/random_sites/combination/'
+
+results.file.path <-'/home/freak/Programming/Thesis/results/results/'
+plot.file.path <- '/home/freak/Programming/Thesis/results/plots/history50/random_sites/aggregation/'
+combination.file.path <- '/home/freak/Programming/Thesis/results/plots/history50/random_sites/aggregation/combination/'
 
 
 if(table.ip.type == "random"){
@@ -50,18 +48,16 @@ con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="passw
 
 algo.vec <<- c('neuralnet','brnn','gbm')
 simi.meas.vec <<- c(
-                   #'euclidean',
-                   #'minkowski',
-                   #'manhattan',
-                   #'fourier',
-                   #'correlation',
-                   #'pca'
-                   #'lcss',
-                   'erp'
-                   #'dtw'
-                   #'edr'
-                   )
-#simi.meas.vec <<- c('lcss')#c('erp')#c('dtw')#c('edr')
+                   'euclidean',
+                   'minkowski',
+                   'manhattan',
+                   'fourier',
+                   'correlation',
+                   'pca',
+                   'lcss',
+                   'erp',
+                   'dtw',
+                   'edr')
 
 setvals <- function(algorithm, measure, type){
   algo <<- algorithm
@@ -96,7 +92,7 @@ load.data <- function(){
 }
 
 load.err.data <- function(file.no){
-  rmse <<- c()
+  plotdata <<- c()
 
 #  if(file.no==1){
 #    file <- file.name.single
@@ -110,7 +106,8 @@ load.err.data <- function(file.no){
     seq <- err.tbl$AggrNo.Seq
     err <- err.tbl$rmse
     seq <- gsub("10","0",seq)#Replace 10 with 0 in vector
-    rmse <<- data.frame(seq,err)
+
+    plotdata <<- data.frame(seq,err)
 #  }
 }
 
@@ -169,8 +166,6 @@ gen.dist.mat <- function(measure){
                  )
     }
   }
-  #print(mat)
-  #return(mat)
 }
 
 get.distance.mat <- function(aggr.seq){
@@ -190,17 +185,15 @@ get.distance.mat <- function(aggr.seq){
 
 get.err.dist.data <- function(){
   avg.dist <- c()
-  for(i in seq(1,length(rmse$seq))){
-    seq <- unlist(strsplit(as.character(rmse$seq[i]),''))
+  for(i in seq(1,length(plotdata$seq))){
+    seq <- unlist(strsplit(as.character(plotdata$seq[i]),''))
     seq <- as.integer(seq[2:length(seq)]) #remove S from sequence
     seq <- replace(seq,seq==0,10)#replace 0 back to 10
-    diag.len <- row.len <- col.len <- length(seq)
+    #diag.len <- row.len <- col.len <- length(seq)
     if(length(seq)>1){
       dist.mat <- get.distance.mat(seq)
-      #dist.mat[upper.tri(dist.mat,diag=TRUE)] <- 0
-      #lower.tri.cnt <- ((row.len*col.len)-diag.len)/2
-      #dist <- sum(dist.mat)/lower.tri.cnt
-      dist <- sum(dist.mat)/((row.len*col.len)-diag.len)
+      d <- as.vector(as.dist(dist.mat))
+      dist <- mean(d)
       avg.dist <- c(avg.dist,dist)
     }else{
       avg.dist <- 0
@@ -215,12 +208,13 @@ get.err.dist.data <- function(){
   }
   #combination result set
   for(i in seq(1,length(avg.dist))){
-    if(avg.dist[i] <= threshold.dist && rmse$err[i] <= threshold.rmse){
-      combination.result <<- c(combination.result, rmse$seq[i])
+    if(avg.dist[i] <= threshold.dist && plotdata$err[i] <= threshold.rmse){
+      combination.result <<- c(combination.result, plotdata$seq[i])
     }
   }
 
-  data.to.plot <- data.frame(err.rmse=rmse$err, dist=avg.dist)
+  #err <- normalizeData(as.vector(plotdata$err),type="0_1")
+  data.to.plot <- data.frame(err.rmse=plotdata$err, dist=avg.dist)
   return(data.to.plot)
 }
 
@@ -259,9 +253,9 @@ plot.for.algo <- function(){
     d <- data.frame(y,x)
     f <- formula('y~x')
     plot(f,d,
-         main=cor(data.to.plot$err.rmse,data.to.plot$dist),
-         xlab=paste("rmse combination ",i),
-         ylab=paste("distance combination ",i))
+         main=cor(y,x),
+         xlab=paste("distance combination ",i),
+         ylab=paste("rmse combination ",i))
   }
   dev.copy2pdf(file =plot.file)
   #dev.off()
@@ -281,14 +275,10 @@ plot.all <- function(){
     for(alg in algo.vec){
       setvals(alg,mes,typ)
       plot.for.algo()
-      #break
+      break
     }
 
   }
 }
 
 plot.all()
-
-
-d <- as.dist(dist.mat)
-d
