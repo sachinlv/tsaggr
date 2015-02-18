@@ -162,10 +162,9 @@ predict.pow <- function(aggrno, indx) {
   train.data <<- cbind(train.data, data.train)
   test.data <<-  cbind(test.data, data.test)
   output <<- cbind(output, data.out)
-  #if(aggr.cluster.size == 1){
+
   test.data.denorm <<- cbind(test.data.denorm, as.vector(denormalizeData(data.test,normParms)))
   output.denorm <<- cbind(output.denorm, as.vector(denormalizeData(data.out, normParms)))
-  #}
 }
 
 
@@ -195,8 +194,6 @@ measure.error <- function(pred,test){
 
 prediction.error <- function(){
   parm.count <- 5
-  #file.name <- paste(file.name.generic, aggr.cluster.size,'.csv',sep="")
-  #file.name.denorm <- paste(file.name.denorm.generic, aggr.cluster.size,'.csv',sep="")
   setwd(filepath)
   col.names <- c("AggrNo.Seq","rmse", "mape", "mae", "mse")
   input.data.type <- c("norm","denorm", "aggrnorm", "aggrdenorm")
@@ -320,73 +317,6 @@ prediction.error <- function(){
       write.csv(err.data, file=file.name)
     }
   }
-
-  #if(aggr.cluster.size == 1){
-  #  err.data <<- matrix(0,nrow=1,ncol=parm.count, byrow=TRUE)
-  #  colnames(err.data) <<- col.names
-  #  col.name <- paste('S',paste(seq(1,aggr.cluster.size), collapse=""), sep="")
-  #  site.name <- col.name
-  #  test <- rowSums(test.data.denorm[,1:aggr.mat.size])
-  #  test <- normalizeData(test, type="0_1")
-  #  pred <- rowSums(output.denorm[,1:aggr.mat.size])
-  #  pred <- normalizeData(pred, type="0_1")
-  #  err <- measure.error(pred,test)
-  #  err.data[1,] <<- c(site.name,err)
-
-  #  write.csv(err.data, file=file.name)
-
-  #  err.data.denorm <<- matrix(0,nrow=1,ncol=parm.count, byrow=TRUE)
-  #  colnames(err.data.denorm) <<- col.names
-  #  test.denorm <- rowSums(test.data.denorm[,1:aggr.mat.size])
-  #  pred.denorm <- rowSums(output.denorm[,1:aggr.mat.size])
-  #  err <- measure.error(pred.denorm, test.denorm)
-  #  err.data.denorm[1,] <<- c(site.name, err)
-  #  write.csv(err.data.denorm, file=file.name.denorm)
-
-  #}else if(aggr.cluster.size>1 && aggr.cluster.size < sites.count){
-  #  err.data <<- matrix(0,nrow=indxcombicnt, ncol=parm.count, byrow=TRUE)
-  #  err.data.denorm <<- matrix(0,nrow=indxcombicnt,ncol=parm.count, byrow=TRUE)
-
-  #  colnames(err.data) <<- col.names
-  #  colnames(err.data.denorm) <<- col.names
-  #  col.names <- colnames(aggrdata)
-  #  for(site in seq(1:(aggr.mat.size))){
-  #    site.name <- col.names[site]
-  #    test <- test.data[,site]
-  #    pred <- output[,site]
-  #    err <- measure.error(pred,test)
-  #    err.data[site,] <<- c(site.name, err)
-
-  #    test.denorm <- test.data.denorm[,site]
-  #    pred.denorm <- output.denorm[,site]
-
-  #    err <- measure.error(pred.denorm, test.denorm)
-  #    err.data.denorm[site,] <<- c(site.name, err)
-  #  }
-  #  write.csv(err.data, file=file.name)
-  #  write.csv(err.data.denorm, file=file.name.denorm)
-  #}
-  #else{
-  #    err.data <<- matrix(0,nrow=1,ncol=parm.count, byrow=TRUE)
-  #    colnames(err.data) <<- col.names
-  #    col.name <- paste('S',paste(seq(1,aggr.cluster.size), collapse=""), sep="")
-  #    site.name <- col.name
-  #    test <- test.data[,1]
-  #    pred <- output[,1]
-  #    err <- measure.error(pred, test)
-  #    err.data[1,] <<- c(site.name, err)
-
-  #    write.csv(err.data, file=file.name)
-
-  #    err.data.denorm <<- matrix(0,nrow=1,ncol=parm.count, byrow=TRUE)
-  #    colnames(err.data.denorm) <<- col.names
-  #    test.denorm <- test.data.denorm[,1]
-  #    pred.denorm <- output.denorm[,1]
-  #    err <- measure.error(pred.denorm, test.denorm)
-  #    err.data.denorm[1,] <<- c(site.name, err)
-  #    write.csv(err.data.denorm, file=file.name.denorm)
-
-  #}
 
 }
 
