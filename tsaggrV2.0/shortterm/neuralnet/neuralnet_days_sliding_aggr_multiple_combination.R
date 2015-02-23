@@ -233,7 +233,7 @@ predict.for.combination <- function(){
     }
   }
   else{
-      predict.pow(0,slide.indx)
+      predict.pow(0)
   }
 }
 
@@ -242,14 +242,16 @@ measure.error <- function(pred,test){
   err.mape <- error(forecast=pred, true=test,method="mape")
   err.mae <- error(forecast=pred, true=test,method="mae")
   err.mse <- error(forecast=pred, true=test,method="mse")
+  err.sd <- sd(pred-test)# need to normalize it to installed power
+  err.cor <- cor(pred,test)
 
-  return(c(err.rmse, err.mape, err.mae, err.mse))
+  return(c(err.rmse, err.mape, err.mae, err.mse, err.sd, err.cor))
 }
 
 prediction.error <- function(){
-  parm.count <- 5
+  parm.count <- 7
   setwd(filepath)
-  col.names <- c("AggrNo.Seq","rmse", "mape", "mae", "mse")
+  col.names <- c("AggrNo.Seq","rmse", "mape", "mae", "mse", "sd", "cor")
   input.data.type <- c("norm","denorm", "aggrnorm", "aggrdenorm")
 
   for(type in input.data.type){
@@ -376,7 +378,7 @@ prediction.error <- function(){
 
 predict.all.combination <- function(){
   loaddata()
-  for(combi in seq(1,10)){#sites.count
+  for(combi in seq(10,10)){#sites.count
     if(combi != sites.count){
       aggr.cluster.size <<- combi
       indxcombicnt <<-length(combn(sites.count,combi)[1,])
