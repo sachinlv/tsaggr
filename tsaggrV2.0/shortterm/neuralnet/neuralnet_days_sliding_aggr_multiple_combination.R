@@ -260,8 +260,28 @@ prediction.error <- function(){
       file.name <- ''
       colnames(err.data) <- col.names
       site.name <- paste('S',paste(seq(1,aggr.cluster.size), collapse=""), sep="")
-      test <- rowSums(test.data.denorm[,1:aggr.mat.size])
-      pred <- rowSums(output.denorm[,1:aggr.mat.size])
+      test <- switch(aggr.type,
+                    'aggr'={
+                            rowSums(test.data.denorm[,1:aggr.mat.size])
+                          },
+                    'mean'={
+                            rowMeans(test.data.denorm[,1:aggr.mat.size])
+                          },
+                    'wmean'={
+                            rowWeightedMeans(test.data.denorm[,1:aggr.mat.size])
+                          }
+                    )
+      pred <- switch(aggr.type,
+                     'aggr'={
+                       rowSums(output.denorm[,1:aggr.mat.size])
+                     },
+                     'mean'={
+                       rowMeans(output.denorm[,1:aggr.mat.size])
+                     },
+                     'wmean'={
+                       rowWeightedMeans(output.denorm[,1:aggr.mat.size])
+                     }
+      )
 
       err.data[1,] <- switch(type,
                               "norm"={
