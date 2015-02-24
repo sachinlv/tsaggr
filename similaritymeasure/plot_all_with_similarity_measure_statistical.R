@@ -76,9 +76,9 @@ simi.meas.vec <<- c(
                    'lm',
                    'weuclid',
                    'maj',
-                   'shrinkage'
-                   #mahalanobis'
-                   #'pdist',
+                   'shrinkage',
+                   'pdist'
+                   #'mahalanobis'
                    #'fish'
                    )
 
@@ -227,22 +227,31 @@ gen.dist.mat <- function(measure){
                             lambda = 0.3
                             c = cor.shrink(data.mat,lambda)
                             c[1,2]
+                          },
+                          'pdist'={
+                            #This cannot be used because- its with predicted values
+                            #and its the distance algo for hclust repeatedly
+                            ni <- 1#No.of series in a cluster
+                            nj <- 1
+                            n <- ((ni * nj)/(ni+nj))
+                            vi <- var(data.mat$c1)/(ni^2)
+                            vj <- var(data.mat$c2)/(nj^2)
+                            mi <- mean(data.mat$c1)
+                            mj <- mean(data.mat$c2)
+                            abs(n *(vi + vj - (mi-mj)^2))
+                          },
+                          "mahalanobis"={
+                            if(i == j){
+                              d <- 0
+                            }else{
+                              d <- mahalanobis(data.mat,
+                                               colMeans(data.mat),
+                                               cov(data.mat))
+                            }
+                            sqrt(sum(d))
                           }#,
-                          #"mahalanobis"={
-                          #  mahalanobis(data.mat$c1,data.mat$c2)
-                          #},
                           #"fish"={},
-                          #'pdist'={#This cannot be used because- its with predicted values
-                          # and its the distance algo for hclust repeatedly
-                          #ni <- 1#No.of series in a cluster
-                          #nj <- 1
-                          #n <- ((ni * nj)/(ni+nj))
-                          #vi <- var(data.mat$c1)
-                          #vj <- var(data.mat$c2)
-                          #mi <- mean(data.mat$c1)
-                          #mj <- mean(data.mat$c2)
-                          #abs(n *(vi + vj - (mi-mj)^2))
-                          #}
+
                  )
     }
   }
@@ -297,31 +306,32 @@ plot.for.algo <- function(){
   par(mar=c(0.5, 4.5, 0.5, 0.5))
   plot.window(xlim=c(0,300),ylim=c(0,1),asp=1)
 
-  #plot1-10
-  setwd(file.path.all)
-  for(i in seq(1,sites.count)){
-    load.err.data(i)
-    data.to.plot <- get.err.dist.data()
-    #testing <<- data.to.plot##remove this line later
+    #plot1-10
+    setwd(file.path.all)
+    for(i in seq(1,sites.count)){
+      load.err.data(i)
+      data.to.plot <- get.err.dist.data()
+      #testing <<- data.to.plot##remove this line later
 
-    y <- data.to.plot$err.rmse
-    x <- data.to.plot$dist
-    d <- data.frame(y,x)
-    f <- formula('y~(1/x)')
+      y <- data.to.plot$err.rmse
+      x <- data.to.plot$dist
+      d <- data.frame(y,x)
+      f <- formula('y~(1/x)')
 
-   plot(f,d,
-         main=cor(y,x,method="spearman"),
-         xlab=paste("distance combination ",i),
-         ylab=paste("rmse combination ",i))
+     plot(f,d,
+           main=cor(y,x,method="spearman"),
+           xlab=paste("distance combination ",i),
+           ylab=paste("rmse combination ",i))
 
-  dev.copy2pdf(file =plot.file)
-  #dev.off()
-  combination.result <<- as.character(combination.result)
-  combination.result <<- gsub("0","10",combination.result)
-  df <- c(paste("RMSE threshold", as.character(threshold.rmse)))
-  df <- c(df,paste("Similarity Threshold",as.character(threshold.dist)))
-  df <- c(df, combination.result)
-  write.table(df, result.file)
+    dev.copy2pdf(file =plot.file)
+    #dev.off()
+    combination.result <<- as.character(combination.result)
+    combination.result <<- gsub("0","10",combination.result)
+    df <- c(paste("RMSE threshold", as.character(threshold.rmse)))
+    df <- c(df,paste("Similarity Threshold",as.character(threshold.dist)))
+    df <- c(df, combination.result)
+    write.table(df, result.file)
+  }
 }
 
 plot.all <- function(){
@@ -332,11 +342,10 @@ plot.all <- function(){
     for(alg in algo.vec){
       setvals(alg,mes,typ)
       plot.for.algo()
-      #break
+      break
     }
-    #break
+    break
   }
 }
 
 plot.all()
-
