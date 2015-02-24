@@ -2,7 +2,24 @@ require(RMySQL)
 require(ff)
 require(RSNNS)
 require(TSdist)
+require(forecast)
+require(timeSeries)
+require(TSclust)
+require(corpcor)
+require(MADAM)
 
+sites.count <- 10
+data.len <-7200 #52560
+powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
+powdata.normalized <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
+threshold.rmse <<- 0.3
+threshold.dist <<- 0.3
+drv = dbDriver("MySQL")
+con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
+start.date <- '20061112'
+end.date <- '20070101'
+preprocess <- 'raw'#c('raw', 'linear', 'expsmooth', 'wma')
+err.type <- 'mse'#c('rmse','mse','sd','cor')
 table.ip.type <- "random"#"specific"
 
 results.file.path <-'/home/freak/Programming/Thesis/results/results/'
@@ -21,7 +38,10 @@ if(table.ip.type == "random"){
              'onshore_SITE_00012',
              'onshore_SITE_00013',
              'onshore_SITE_00014')
+      lat=c(45.34,47.46,34.88,45.48,45.01,34.96,34.97,34.86,45.89,34.87)
+      long=c(-104.41,-102.92,-103.98,-104.35,-70.32,-103.28,-103.68,-103.62,-103.66,-98.64)
       tables <<- data.frame(cbind(numeric(0),t))
+      coordinates <<- data.frame(long,lat)
 }else{
       t <- c("onshore_SITE_00538",
              "onshore_SITE_00366",
@@ -33,18 +53,12 @@ if(table.ip.type == "random"){
              "onshore_SITE_00571",
              "onshore_SITE_03247",
              "onshore_SITE_00622")
+      lat=c(34.6,34.96,35.01,35.09,35.2,35.05,35.24,35.32,33.86,34.44)
+      long=c(-102.54,-102.72,-102.32,-102.62,-102.52,-103,-102.76,-102.52,-102.79,-101.7)
       tables <<- data.frame(cbind(numeric(0),t))
+      coordinates <<- data.frame(long,lat)
 }
 
-
-sites.count <- 10
-data.len <-7200 #52560
-powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
-powdata.normalized <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
-threshold.rmse <<- 0.3
-threshold.dist <<- 0.3
-drv = dbDriver("MySQL")
-con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
 
 algo.vec <<- c('neuralnet','brnn','gbm')
 simi.meas.vec <<- c(
@@ -57,14 +71,23 @@ simi.meas.vec <<- c(
                    'lcss',
                    'erp',
                    'dtw',
-                   'edr')
+                   'edr',
+                   'coord',
+                   'lm',
+                   'weuclid',
+                   'maj',
+                   'shrinkage'
+                   #mahalanobis'
+                   #'pdist',
+                   #'fish'
+                   )
 
 setvals <- function(algorithm, measure, type){
   algo <<- algorithm
   sim.meas <<- measure
   ip.type <<- type#'statistical'
   combination.result <<- c()
-  #file.path.single <<- paste(results.file.path,algo,'_shortterm_simple/',sep="")
+
   file.path.all <<- paste(results.file.path,algo,'_shortterm_aggr/',sep="")
   plot.file <<- paste(plot.file.path,
                      algo,'_',
@@ -75,7 +98,6 @@ setvals <- function(algorithm, measure, type){
                        ip.type,'_',
                        sim.meas,'.csv',sep="")
 
-  #file.name.single <<- paste(algo,'_shortterm_simple.csv',sep="")
   file.name.all <<- paste(algo,'_shortterm_aggr_combi',sep="")
 }
 
@@ -84,31 +106,53 @@ load.data <- function(){
   for(indx in seq(1,sites.count)){
     tab <- as.character(tables[indx,1])
     print(paste("Loading from table :: ", tab))
-    query <- paste(" select pow from ", tab, " WHERE (mesdt >= 20061112 && mesdt < 20070101) LIMIT ", data.len, ";")
+    query <- paste(" select pow from ", tab, " WHERE (mesdt >= ",start.date," && mesdt < ",end.date,") LIMIT ", data.len, ";")
     data06 <- data.frame(dbGetQuery(con,statement=query), check.names=FALSE)
-    powdata[,indx] <<- as.double(data06[,1])
-    powdata.normalized[,indx] <<- normalizeData(as.vector(data06[,1]),type="0_1")
+    powdata[,indx] <<- switch(preprocess,
+                              "raw"={
+                                as.double(data06[,1])
+                              },
+                              "linear"={
+                                d <- as.double(data06[,1])
+                                f <- filter(d,rep(1/mean(d),mean(d)))
+                                f[is.na(f)] <- 0
+                              },
+                              "expsmooth"={
+                                d <- as.double(data06[,1])
+                                f <- tbats(d, use.parallel=FALSE)
+                                f$fitted.values
+                              },
+                              "wma"={
+                                c()
+                              }
+    )
+    #powdata.normalized[,indx] <<- normalizeData(as.vector(data06[,1]),type="0_1")
   }
 }
 
 load.err.data <- function(file.no){
   plotdata <<- c()
 
-#  if(file.no==1){
-#    file <- file.name.single
-#    err.tbl <- read.csv(file,sep = ',')
-#    err <- err.tbl$rmse
-#    rmse <<- data.frame(err)
-#  }
-#  else{
-    file <- paste(file.name.all,file.no,'.csv', sep="")
-    err.tbl <- read.csv(file,sep = ',')
-    seq <- err.tbl$AggrNo.Seq
-    err <- err.tbl$rmse
-    seq <- gsub("10","0",seq)#Replace 10 with 0 in vector
+  file <- paste(file.name.all,file.no,'.csv', sep="")
+  err.tbl <- read.csv(file,sep = ',')
+  seq <- err.tbl$AggrNo.Seq
+  err <- switch(err.type,
+                'rmse'={
+                  err.tbl$rmse
+                },
+                'mse'={
+                  err.tbl$mse
+                },
+                'sd'={
+                  err.tbl$sd
+                },
+                'cor'={
+                  err.tbl$cor
+                }
+              )
 
-    plotdata <<- data.frame(seq,err)
-#  }
+  seq <- gsub("10","0",seq)#Replace 10 with 0 in vector
+  plotdata <<- data.frame(seq,err)
 }
 
 
@@ -143,14 +187,6 @@ gen.dist.mat <- function(measure){
                           "mean"={
                             abs(mean(data.mat$c1-data.mat$c2))
                           },
-                          "mahalanobis"={
-                            d <- matrix(NA,nrow=52560,ncol=2)
-                            #d[,1] <- powdata[,i1]
-                            #d[,2] <- powdata[,j1]
-                            #c <- cov(d[,1:2])#,method=c("pearson"))
-                            #m <- c(mean(d[,1]), mean(d[,2]))
-                            #mat[i,j] <- mahalanobis(d,m,c)
-                          },
                           "dtw"={
                             dtwDistance(data.mat$c1, data.mat$c2)
                           },
@@ -162,7 +198,51 @@ gen.dist.mat <- function(measure){
                           },
                           "lcss"={
                             lcssDistance(data.mat$c1, data.mat$c2, epsilon=0.1)
-                          }
+                          },
+                          "coord"={
+                            y1 <- coordinates$long[i]
+                            x1 <- coordinates$lat[i]
+                            y2 <- coordinates$long[j]
+                            x2 <- coordinates$lat[j]
+                            sqrt(((y2-y1)^2) + ((x2-x1)^2))
+                          },
+                          "lm"={
+                            x <- data.frame(x=data.mat$c1)
+                            y <- data.frame(y=data.mat$c2)
+                            lx <- lm('x ~.', x)
+                            ly <- lm('y ~.', y)
+                            euclideanDistance(lx$fitted.values,ly$fitted.values)
+                          },
+                          "weuclid"={#distance from patel paper. weighted euclidean distance
+                            v1 <- var(data.mat$c1)
+                            v2 <- var(data.mat$c2)
+                            d <- ((data.mat$c1-data.mat$c2)^2)/(v1+v2)
+                            sum(d)
+                          },
+                          "maj"={
+                            d = diss.AR.MAH(data.mat$c1, data.mat$c2, dependence=FALSE, permissive=TRUE)
+                            d$statistic #check what is p-value in this
+                          },
+                          "shrinkage"={
+                            lambda = 0.3
+                            c = cor.shrink(data.mat,lambda)
+                            c[1,2]
+                          }#,
+                          #"mahalanobis"={
+                          #  mahalanobis(data.mat$c1,data.mat$c2)
+                          #},
+                          #"fish"={},
+                          #'pdist'={#This cannot be used because- its with predicted values
+                          # and its the distance algo for hclust repeatedly
+                          #ni <- 1#No.of series in a cluster
+                          #nj <- 1
+                          #n <- ((ni * nj)/(ni+nj))
+                          #vi <- var(data.mat$c1)
+                          #vj <- var(data.mat$c2)
+                          #mi <- mean(data.mat$c1)
+                          #mj <- mean(data.mat$c2)
+                          #abs(n *(vi + vj - (mi-mj)^2))
+                          #}
                  )
     }
   }
@@ -189,7 +269,7 @@ get.err.dist.data <- function(){
     seq <- unlist(strsplit(as.character(plotdata$seq[i]),''))
     seq <- as.integer(seq[2:length(seq)]) #remove S from sequence
     seq <- replace(seq,seq==0,10)#replace 0 back to 10
-    #diag.len <- row.len <- col.len <- length(seq)
+
     if(length(seq)>1){
       dist.mat <- get.distance.mat(seq)
       d <- as.vector(as.dist(dist.mat))
@@ -200,12 +280,6 @@ get.err.dist.data <- function(){
     }
   }
 
-  if(length(avg.dist) == 1){
-    while(avg.dist>1){avg.dist <- avg.dist/10}
-  }
-  else{
-    avg.dist <- normalizeData(as.vector(avg.dist),type="0_1")
-  }
   #combination result set
   for(i in seq(1,length(avg.dist))){
     if(avg.dist[i] <= threshold.dist && plotdata$err[i] <= threshold.rmse){
@@ -218,45 +292,28 @@ get.err.dist.data <- function(){
   return(data.to.plot)
 }
 
-
-
 plot.for.algo <- function(){
-  #load.data()
-  #x11()
   par(mfrow=c(5,2))
   par(mar=c(0.5, 4.5, 0.5, 0.5))
   plot.window(xlim=c(0,300),ylim=c(0,1),asp=1)
-  #plot singles
-  #setwd(file.path.single)
-  #load.err.data(1)
-  #data.to.plot <- rmse$err
-  #plot(data.to.plot,
-  #     type="p",
-  #     ylim=c(0,1),
-  #     col="red",
-  #     xlab=paste("Individuals"),
-  #     ylab="Rmse vals",
-  #     main="Individuals")
-  #legend("topright",
-  #       legend=c("rmse"),
-  #       col=c("red"),
-  #       text.col=c("red"))
 
   #plot1-10
   setwd(file.path.all)
   for(i in seq(1,sites.count)){
     load.err.data(i)
     data.to.plot <- get.err.dist.data()
-    #typ <- if(i == 10) 'p' else 'l'
+    #testing <<- data.to.plot##remove this line later
+
     y <- data.to.plot$err.rmse
     x <- data.to.plot$dist
     d <- data.frame(y,x)
-    f <- formula('y~x')
-    plot(f,d,
-         main=cor(y,x),
+    f <- formula('y~(1/x)')
+
+   plot(f,d,
+         main=cor(y,x,method="spearman"),
          xlab=paste("distance combination ",i),
          ylab=paste("rmse combination ",i))
-  }
+
   dev.copy2pdf(file =plot.file)
   #dev.off()
   combination.result <<- as.character(combination.result)
@@ -275,10 +332,11 @@ plot.all <- function(){
     for(alg in algo.vec){
       setvals(alg,mes,typ)
       plot.for.algo()
-      break
+      #break
     }
-
+    #break
   }
 }
 
 plot.all()
+
