@@ -81,7 +81,13 @@ loaddata <- function(){
                               },
                               "expsmooth"={
                                 d <- as.double(data06[,1])
-                                f <- tbats(d, use.parallel=FALSE)
+                                f <- tbats(d,
+                                           use.trend=FALSE,
+                                           use.damped.trend=FALSE,
+                                           use.box.cox=FALSE,
+                                           use.arma.errors=FALSE,
+                                           use.parallel=TRUE,
+                                           num.cores=3)
                                 f$fitted.values
                               },
                               "wma"={
