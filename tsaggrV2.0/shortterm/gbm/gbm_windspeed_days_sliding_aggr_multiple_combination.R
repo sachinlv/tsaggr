@@ -119,7 +119,7 @@ gen.aggrdata <- function(){
     pow.aggrdata10.mean <<- rowMeans(as.matrix(powdata[,indx.seq]))
     pow.aggrdata10.wmean <<- rowWeightedMeans(as.matrix(powdata[,indx.seq]))
 
-    wind.aggrdata10 <<- rowWeightedMeans(as.matrix(powdata[,indx.seq]))#rowMeans()
+    wind.aggrdata10 <<- rowWeightedMeans(as.matrix(winddata[,indx.seq]))#rowMeans()
   }
 }
 
