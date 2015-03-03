@@ -13,12 +13,12 @@ require(forecast)
 require(timeSeries)
 
 sites.count <- 10
-history.length <- 50
+history.length <- 10
 data.len.day <<- 144
 data.len <- history.length * data.len.day
-window.size <- 1440
-train.data.percent <- 0.7
-start.date <- '20061112'
+window.size <- 144
+train.data.percent <- 0.96
+start.date <- '20061222'
 end.date <- '20070101'
 hidden.nodes <<- 10#c(round(window.size/2), window.size,1)
 #mat.size <<- 365
@@ -30,7 +30,7 @@ file.name.denorm.generic <<- 'neuralnet_shortterm_windspeed_aggr_combi_denorm'
 file.name.aggr.generic <<- 'neuralnet_shortterm_windspeed_aggr_combi_aggr'
 file.name.aggr.denorm.generic <<- 'neuralnet_shortterm_windspeed_aggr_combi_aggr_denorm'
 
-aggr.type <<- 'mean' #c('aggr', 'mean','wmean')
+aggr.type <<- 'aggr' #c('aggr', 'mean','wmean')
 
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 winddata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
@@ -79,7 +79,7 @@ loaddata <- function(){
 
 aggr.timeseries <- function(vec){
   #need to remove last 14 values
-  vec <- vec[1:(length(vec)-2)]
+  #vec <- vec[1:(length(vec)-2)]
   len <- length(vec)/4
   aggr.indx <-rep(c(seq(1,len)),each=4)
   x <- as.zoo(vec)
@@ -402,7 +402,7 @@ prediction.error <- function(){
 
 predict.all.combination <- function(){
   loaddata()
-  for(combi in seq(10,10)){#sites.count
+  for(combi in seq(1,10)){#sites.count
     aggr.cluster.size <<- combi
     if(combi != sites.count){
       indxcombicnt <<-length(combn(sites.count,combi)[1,])
