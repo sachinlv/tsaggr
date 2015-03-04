@@ -189,11 +189,11 @@ predict.pow <- function(aggrno) {
     y = formula.set[window.size]
     x = formula.set[1:window.size-1]
     f = as.formula(paste(y, " ~ ", paste(x, collapse="+")))
-
+    #After test, showed that not much difference of n.trees=10000(0.231001) and n.trees=1000(0.232469)
     out <<- gbm(f,
                 data=data.mat.train,
                 distribution ="gaussian",
-                n.trees=10000,
+                n.trees=1000,
                 interaction.depth = 10,
                 n.minobsinnode = 5,
                 shrinkage =  0.008,

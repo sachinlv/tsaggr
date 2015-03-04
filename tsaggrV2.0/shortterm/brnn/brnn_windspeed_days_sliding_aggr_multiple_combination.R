@@ -189,7 +189,7 @@ predict.pow <- function(aggrno, indx) {
 
     out <<- brnn(f,
                  trn.data,
-                 epochs=1000,
+                 epochs=5,
                  cores=2,
                  mu=0.1,
                  mu_dec=0.1,

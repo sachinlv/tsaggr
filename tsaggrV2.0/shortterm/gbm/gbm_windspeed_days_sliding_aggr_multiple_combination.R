@@ -187,7 +187,7 @@ predict.pow <- function(aggrno) {
     out <<- gbm(f,
                 data=trn.data,
                 distribution ="gaussian",
-                n.trees=10000,
+                n.trees=1000,
                 interaction.depth = 10,
                 n.minobsinnode = 5,
                 shrinkage =  0.008,

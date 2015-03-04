@@ -32,7 +32,7 @@ preprocess <<- 'raw' #c('raw','linear', 'expsmooth', 'wma')
 aggr.type <<- 'mean' #c('aggr', 'mean','wmean')
 
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
-table.ip.type <- "specific"#"random"
+table.ip.type <- "random"#"random"
 
 drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
@@ -182,14 +182,14 @@ predict.pow <- function(aggrno) {
     window.slide <- data.len.day - train.dataset.indx
     data.mat.train <- data.mat[1:train.dataset.indx,]
     data.mat.test <- data.mat[test.dataset.indx:data.len.day,]
-
+    #It was tested on different sites that 5(0.292471) epochs gives lower error than 1000(0.354589)
     formula.set <- colnames(data.mat)
     y = formula.set[window.size]
     x = formula.set[1:window.size-1]
     f = as.formula(paste(y, " ~ ", paste(x, collapse="+")))
     out <<- brnn(f,
                  data.mat.train,
-                 epochs=1000,
+                 epochs=5,
                  cores=2,
                  mu=0.1,
                  mu_dec=0.1,
