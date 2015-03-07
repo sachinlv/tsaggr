@@ -32,7 +32,7 @@ preprocess <<- 'raw' #c('raw','linear', 'expsmooth', 'wma')
 aggr.type <<- 'mean' #c('aggr', 'mean','wmean')
 
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
-table.ip.type <- "random"#"random"
+table.ip.type <- "random"#c("random","specific")
 
 drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")

@@ -1,4 +1,4 @@
-require(brnn)
+require(gbm)
 require(RMySQL)
 require(ff)
 require(googleVis)
@@ -13,27 +13,26 @@ require(forecast)
 require(timeSeries)
 
 sites.count <- 10
-history.length <- 10
+history.length <- 50
 data.len.day <<- 144
 data.len <- history.length * data.len.day
-window.size <- 144
-train.data.percent <- 0.96
+init.train.days <- 10
+window.size <- data.len.day*init.train.days
+train.data.percent <- 0.7
 start.date <- '20061112'
 end.date <- '20070101'
-hidden.nodes <<- 10#c(round(window.size/2), window.size,1)
 #mat.size <<- 365
 #slide.count <- mat.size-window.size+1
+filepath <<- '/home/freak/Programming/Thesis/results/results/gbm_shortterm_aggr/all/'
+file.name.generic <<- 'gbm_shortterm_aggr_combi'
+file.name.denorm.generic <<- 'gbm_shortterm_aggr_combi_denorm'
+file.name.aggr.generic <<- 'gbm_shortterm_aggr_combi_aggr'
+file.name.aggr.denorm.generic <<- 'gbm_shortterm_aggr_combi_aggr_denorm'
 
-filepath <<- '/home/freak/Programming/Thesis/results/results/brnn_shortterm_windspeed_aggr/all/'
-file.name.generic <<- 'brnn_shortterm_windspeed_aggr_combi'
-file.name.denorm.generic <<- 'brnn_shortterm_windspeed_aggr_combi_denorm'
-file.name.aggr.generic <<- 'brnn_shortterm_windspeed_aggr_combi_aggr'
-file.name.aggr.denorm.generic <<- 'brnn_shortterm_windspeed_aggr_combi_aggr_denorm'
-
+preprocess <<- 'raw' #c('raw','linear', 'expsmooth', 'wma')
 aggr.type <<- 'mean' #c('aggr', 'mean','wmean')
 
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
-winddata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 table.ip.type <- "specific"#"random"
 
 drv = dbDriver("MySQL")
@@ -65,21 +64,42 @@ if(table.ip.type == "random"){
   tables <<- data.frame(cbind(numeric(0),t))
 }
 
-
 loaddata <- function(){
   colindx <- 1
   for(indx in seq(1,sites.count)){
     tab <- tables[indx,]
     print(paste("Loading from table :: ", tab))
-    query <- paste(" select pow,spd from ", tab, " WHERE (mesdt >= ",start.date," && mesdt < ",end.date,") LIMIT ", data.len, ";")
+    query <- paste(" select pow from ", tab, " WHERE (mesdt >= ",start.date," && mesdt < ",end.date,") LIMIT ", data.len, ";")
     data06 <- data.frame(dbGetQuery(con,statement=query), check.names=FALSE)
-    powdata[,indx] <<- as.double(data06[,1])
-    winddata[,indx] <<- as.double(data06[,2])
+    powdata[,indx] <<- switch(preprocess,
+                              "raw"={
+                                as.double(data06[,1])
+                              },
+                              "linear"={
+                                d <- as.double(data06[,1])
+                                f <- filter(d,rep(1/mean(d),mean(d)))
+                                f[is.na(f)] <- 0
+                              },
+                              "expsmooth"={
+                                d <- as.double(data06[,1])
+                                f <- tbats(d,
+                                           use.trend=FALSE,
+                                           use.damped.trend=FALSE,
+                                           use.box.cox=FALSE,
+                                           use.arma.errors=FALSE,
+                                           use.parallel=TRUE,
+                                           num.cores=3)
+                                f$fitted.values
+                              },
+                              "wma"={
+                                c()
+                              }
+    )
   }
 }
 
+
 aggr.timeseries <- function(vec){
-  #vec <- vec[1:(length(vec)-2)]
   len <- length(vec)/4
   aggr.indx <-rep(c(seq(1,len)),each=4)
   x <- as.zoo(vec)
@@ -91,80 +111,63 @@ gen.aggrdata <- function(){
   col.names <- c()
   if(aggr.mat.size != 0){
     for(i in seq(1 ,aggr.mat.size)){
-      indx.seq <- indxcombimat[,i]
-      pmat <- as.matrix(powdata[,indx.seq])
-      wmat <- as.matrix(winddata[,indx.seq])
+      indx.seq <<- indxcombimat[,i]
+      mat <- as.matrix(powdata[,indx.seq])
       col.names <- c(col.names, paste('S',paste(indx.seq, collapse=""), sep=""))
-
-      if(length(pmat[1,]) > 1){
-        pow.aggrdata[,i] <<- rowSums(pmat)
-        pow.aggrdata.mean[,i] <<- rowMeans(pmat)
-        pow.aggrdata.wmean[,i] <<- rowWeightedMeans(pmat)
-
-        wind.aggrdata[,i] <<- rowWeightedMeans(wmat)#rowMeans(wmat)
+      if(length(mat[1,]) > 1){
+        aggrdata[,i] <<- rowSums(mat)
+        aggrdata.mean[,i] <<- rowMeans(mat)
+        aggrdata.wmean[,i] <<- rowWeightedMeans(mat)
       }else{
-        pow.aggrdata[,i] <<- pmat[,1]
-        pow.aggrdata.mean[,i] <<- pmat[,1]
-        pow.aggrdata.wmean[,i] <<- pmat[,1]
-
-        wind.aggrdata[,i] <<- wmat[,1]
+        aggrdata[,i] <<- mat[,1]
+        aggrdata.mean[,i] <<- mat[,1]
+        aggrdata.wmean[,i] <<- mat[,1]
       }
     }
-    colnames(pow.aggrdata) <<- col.names
-    colnames(pow.aggrdata.mean) <<- col.names
-    colnames(pow.aggrdata.wmean) <<- col.names
+    colnames(aggrdata) <<- col.names
+    colnames(aggrdata.mean) <<- col.names
+    colnames(aggrdata.wmean) <<- col.names
   }
   else{
     indx.seq <- seq(1,sites.count)
-    pow.aggrdata10 <<- rowSums(as.matrix(powdata[,indx.seq]))
-    pow.aggrdata10.mean <<- rowMeans(as.matrix(powdata[,indx.seq]))
-    pow.aggrdata10.wmean <<- rowWeightedMeans(as.matrix(powdata[,indx.seq]))
-
-    wind.aggrdata10 <<- rowWeightedMeans(as.matrix(winddata[,indx.seq]))#rowMeans()
+    aggrdata10 <<- rowSums(as.matrix(powdata[,indx.seq]))
+    aggrdata10.mean <<- rowMeans(as.matrix(powdata[,indx.seq]))
+    aggrdata10.wmean <<- rowWeightedMeans(as.matrix(powdata[,indx.seq]))
   }
 }
 
 
-
-predict.pow <- function(aggrno, indx) {
-  pow.data.normalized <- c()
-  wind.data.normalized <- c()
+predict.pow <- function(aggrno) {
+  data.normalized <- c()
   if(aggr.mat.size!=0){
-    pow.data.normalized <- switch(aggr.type,
-                                  'aggr'={
-                                    normalizeData(as.vector(pow.aggrdata[,aggrno]),type="0_1")
-                                  },
-                                  'mean'={
-                                    normalizeData(as.vector(pow.aggrdata.mean[,aggrno]),type="0_1")
-                                  },
-                                  'wmean'={
-                                    normalizeData(as.vector(pow.aggrdata.wmean[,aggrno]),type="0_1")
-                                  }
+    data.normalized <- switch(aggr.type,
+                              'aggr'={
+                                normalizeData(as.vector(aggrdata[,aggrno]),type="0_1")
+                              },
+                              'mean'={
+                                normalizeData(as.vector(aggrdata.mean[,aggrno]),type="0_1")
+                              },
+                              'wmean'={
+                                normalizeData(as.vector(aggrdata.wmean[,aggrno]),type="0_1")
+                              }
     )
-
-    wind.data.normalized <- normalizeData(as.vector(wind.aggrdata[,aggrno]),type="0_1")
   }
   else{
-    pow.data.normalized <- switch(aggr.type,
-                                  'aggr'={
-                                    normalizeData(as.vector(pow.aggrdata10),type="0_1")
-                                  },
-                                  'mean'={
-                                    normalizeData(as.vector(pow.aggrdata10.mean),type="0_1")
-                                  },
-                                  'wmean'={
-                                    normalizeData(as.vector(pow.aggrdata10.wmean),type="0_1")
-                                  }
+    data.normalized <- switch(aggr.type,
+                              'aggr'={
+                                normalizeData(as.vector(aggrdata10),type="0_1")
+                              },
+                              'mean'={
+                                normalizeData(as.vector(aggrdata10.mean),type="0_1")
+                              },
+                              'wmean'={
+                                normalizeData(as.vector(aggrdata10.wmean),type="0_1")
+                              }
     )
-
-    wind.data.normalized <- normalizeData(as.vector(wind.aggrdata10),type="0_1")
   }
 
-  pow.normParms <<- getNormParameters(pow.data.normalized)
-  wind.normParms <<- getNormParameters(wind.data.normalized)
-  pow.data.set <- as.vector(pow.data.normalized[,1])
-  wind.data.set <- as.vector(wind.data.normalized[,1])
-
+  normParms <<- getNormParameters(data.normalized)
+  data.set <- as.vector(data.normalized[,1])
   indx.start <<- 1
   indx.end <<- indx.start + window.size - 1
   data.train <<- c()
@@ -174,41 +177,35 @@ predict.pow <- function(aggrno, indx) {
 
   while(indx.end <= data.len){
     print(paste("Cluster size: ",aggr.cluster.size," AggrNo.: ", aggrno, " Slide No.: ", count+1))
-    y <- as.vector(pow.data.set[indx.start:indx.end])
-    x <- as.vector(wind.data.set[indx.start:indx.end])
-    dat <- data.frame(cbind(y,x))
+    data.mat <- matrix(data.set[indx.start:indx.end], nrow=data.len.day, ncol=window.size, byrow=FALSE)
+    colnames(data.mat) <- paste("d",c(1:window.size), sep="")
+    #data.mat <- cbind(numeric(0),as.vector(data.set[indx.start:indx.end]))
+    #colnames(data.mat) <- "d"
+    window.slide <- 1
+    train.dataset.indx <- window.size-window.slide
+    test.dataset.indx <- train.dataset.indx + 1
 
-    train.indx <- floor(window.size *  train.data.percent)
-    test.indx <- train.indx + 1
-    window.slide <- window.size - train.indx
+    data.mat.train <<- data.frame(d=data.mat[1:train.dataset.indx,])
+    data.mat.test <<- data.frame(d=data.mat[test.dataset.indx:window.size,])
 
-    trn.data <- data.frame(dat[1:train.indx,])
-    tst.x <- data.frame(x=dat$x[test.indx:window.size])
-    tst.y <- data.frame(y=dat$y[test.indx:window.size])
-    f = as.formula("y ~ x")
+    f = as.formula("d ~.")
+    out <<- gbm(f,formula=(d ~.),
+                distribution ="gaussian",
+                data=data.mat.train,
+                n.trees=1000,
+                interaction.depth = 10,
+                n.minobsinnode = 5,
+                shrinkage =  0.008,
+                n.cores=3)
 
-    out <<- brnn(f,
-                 trn.data,
-                 epochs=5,
-                 cores=2,
-                 mu=0.1,
-                 mu_dec=0.1,
-                 mu_max=1e10,
-                 change = 0.001,
-                 neurons=hidden.nodes,
-                 normalize=FALSE,
-                 verbose=FALSE,
-                 Monte_Carlo = FALSE)
+    data.train <<- c(data.train, data.mat.train)
+    data.test <<- c(data.test, data.mat.test)
 
-
-    data.train <<- c(data.train, trn.data$y)
-    data.test <<- c(data.test, tst.y$y)
-
-    pred <- predict.brnn(out , tst.x)
+    pred <- predict.gbm(out, data.mat.test, out$n.trees)
     data.out <<- c(data.out, pred)
 
     indx.start <<- indx.start + window.slide
-    indx.end <<- indx.start + window.size
+    indx.end <<- indx.start + (window.size * data.len.day)
     count <- count + 1
     #if(count == 10){
     #  break
@@ -219,10 +216,11 @@ predict.pow <- function(aggrno, indx) {
   test.data <<-  cbind(test.data, data.test)
   output <<- cbind(output, data.out)
 
-  test.data.denorm <<- cbind(test.data.denorm, as.vector(denormalizeData(data.test,pow.normParms)))
-  output.denorm <<- cbind(output.denorm, as.vector(denormalizeData(data.out, pow.normParms)))
+  #test.data.denorm <<- cbind(test.data.denorm, as.vector(denormalizeData(data.test,normParms)))
+  #output.denorm <<- cbind(output.denorm, as.vector(denormalizeData(data.out, normParms)))
 
 }
+
 
 predict.for.combination <- function(){
   gen.aggrdata()
@@ -237,6 +235,7 @@ predict.for.combination <- function(){
   }
 }
 
+
 measure.error <- function(pred,test){
   err.rmse <- error(forecast=pred, true=test,method="rmse")
   err.mape <- error(forecast=pred, true=test,method="mape")
@@ -247,6 +246,7 @@ measure.error <- function(pred,test){
 
   return(c(err.rmse, err.mape, err.mae, err.mse, err.sd, err.cor))
 }
+
 
 prediction.error <- function(){
   parm.count <- 7
@@ -318,7 +318,7 @@ prediction.error <- function(){
     }else if(aggr.cluster.size>1 && aggr.cluster.size < sites.count){
       err.data <- matrix(0,nrow=indxcombicnt, ncol=parm.count, byrow=TRUE)
       colnames(err.data) <- col.names
-      site.names <- colnames(pow.aggrdata)
+      site.names <- colnames(aggrdata)
 
       for(site in seq(1:(aggr.mat.size))){
         site.name <- site.names[site]
@@ -395,7 +395,6 @@ prediction.error <- function(){
   }
 }
 
-
 predict.all.combination <- function(){
   loaddata()
   for(combi in seq(10,10)){#sites.count
@@ -404,20 +403,18 @@ predict.all.combination <- function(){
       indxcombicnt <<-length(combn(sites.count,combi)[1,])
       aggr.mat.size <<- indxcombicnt
 
-      pow.aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
-      pow.aggrdata.mean <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
-      pow.aggrdata.wmean <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
-      wind.aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
+      aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
+      aggrdata.mean <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
+      aggrdata.wmean <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
 
       indxcombimat <<- as.matrix(combn(sites.count, aggr.cluster.size))
     }else{
       aggr.cluster.size <<- combi
       indxcombicnt <<- 0
       aggr.mat.size <<- 0
-      pow.aggrdata10 <<- ff(NA, dim=data.len, vmode="double")
-      pow.aggrdata10.mean <<- ff(NA, dim=data.len, vmode="double")
-      pow.aggrdata10.wmean <<- ff(NA, dim=data.len, vmode="double")
-      wind.aggrdata10 <<- ff(NA, dim=data.len, vmode="double")
+      aggrdata10 <<- ff(NA, dim=data.len, vmode="double")
+      aggrdata10.mean <<- ff(NA, dim=data.len, vmode="double")
+      aggrdata10.wmean <<- ff(NA, dim=data.len, vmode="double")
     }
 
     train.data <<- c()
@@ -427,7 +424,7 @@ predict.all.combination <- function(){
     output.denorm <<- c()
 
     predict.for.combination()
-    prediction.error()
+    #prediction.error()
   }
 
 }

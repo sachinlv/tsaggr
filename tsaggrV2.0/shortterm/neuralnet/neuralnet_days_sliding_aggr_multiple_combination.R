@@ -11,6 +11,9 @@ require(zoo)
 require(matrixStats)
 require(forecast)
 require(timeSeries)
+require(foreach)
+require(doSNOW)
+
 
 sites.count <- 10
 history.length <- 50
@@ -32,7 +35,7 @@ preprocess <<- 'raw' #c('raw','linear', 'expsmooth', 'wma')
 aggr.type <<- 'mean' #c('aggr', 'mean','wmean')
 
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
-table.ip.type <- "random"#"specific"
+table.ip.type <- "random"#c("random","specific")
 
 drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
@@ -137,6 +140,7 @@ gen.aggrdata <- function(){
 
 predict.pow <- function(aggrno) {
   data.normalized <- c()
+  print(paste('Aggr No: ',aggrno))
   if(aggr.mat.size!=0){
     data.normalized <- switch(aggr.type,
                               'aggr'={
@@ -216,32 +220,73 @@ predict.pow <- function(aggrno) {
     indx.start <<- indx.start + window.slide
     indx.end <<- indx.start + (window.size * data.len.day)
     count <- count + 1
-    #if(count == 10){
-    #  break
-    #}
   }
+    trn=data.train
+    tst=data.test
+    out=data.out
+    tst.dn=as.vector(denormalizeData(data.test,normParms))
+    out.dn=as.vector(denormalizeData(data.out, normParms))
 
-  train.data <<- cbind(train.data, data.train)
-  test.data <<-  cbind(test.data, data.test)
-  output <<- cbind(output, data.out)
+  #res <- data.frame(trn,tst,out,tst.dn,out.dn)
+  res = list(trn,tst,out,tst.dn,out.dn)
+  return(res)
+  #train.data <<- cbind(train.data, data.train)
+  #test.data <<-  cbind(test.data, data.test)
+  #output <<- cbind(output, data.out)
 
-  test.data.denorm <<- cbind(test.data.denorm, as.vector(denormalizeData(data.test,normParms)))
-  output.denorm <<- cbind(output.denorm, as.vector(denormalizeData(data.out, normParms)))
+  #test.data.denorm <<- cbind(test.data.denorm, as.vector(denormalizeData(data.test,normParms)))
+  #output.denorm <<- cbind(output.denorm, as.vector(denormalizeData(data.out, normParms)))
 }
 
+data.bind <- function(res,...){
+  print("Combining")
+  train.data <<- cbind(train.data, res[[1]])#res$trn)
+  test.data <<-  cbind(test.data, res[[2]])#res$tst)
+  output <<- cbind(output, res[[3]])#res$out)
+  test.data.denorm <<- cbind(test.data.denorm, res[[4]])#res$tst.dn)
+  output.denorm <<- cbind(output.denorm, res[[5]])#res$out.dn)
+}
 
 predict.for.combination <- function(){
   gen.aggrdata()
   if(aggr.mat.size != 0){
-    for(aggr.indx in seq(1,aggr.mat.size)){
-      predict.pow(aggr.indx)
-      #break
-    }
+    cl <- makeCluster(3)
+    registerDoSNOW(cl)
+    export.vars <- c('predict.pow',
+                    'aggrdata',
+                    'aggr.mat.size',
+                    'aggr.type',
+                    'aggrdata.mean',
+                    'aggrdata.wmean')
+
+    foreach(aggr.indx = seq(1,aggr.mat.size),
+                     .combine=data.bind,
+                     .inorder=TRUE,
+                     .multicombine=TRUE,
+                     .packages=c("RSNNS","neuralnet"),
+                     .export=export.vars,
+                     .verbose=FALSE)%dopar%
+                predict.pow(aggr.indx)
+
+    stopCluster(cl)
   }
   else{
-      predict.pow(0)
+    predict.pow(0)
   }
 }
+
+#predict.for.combination <- function(){
+#  gen.aggrdata()
+#  if(aggr.mat.size != 0){
+#    for(aggr.indx in seq(1,aggr.mat.size)){
+#      predict.pow(aggr.indx)
+#      #break
+#    }
+#  }
+#  else{
+#      predict.pow(0)
+#  }
+#}
 
 measure.error <- function(pred,test){
   err.rmse <- error(forecast=pred, true=test,method="rmse")
@@ -404,7 +449,7 @@ prediction.error <- function(){
 
 predict.all.combination <- function(){
   loaddata()
-  for(combi in seq(10,10)){#sites.count
+  for(combi in seq(1,1)){#sites.count
     if(combi != sites.count){
       aggr.cluster.size <<- combi
       indxcombicnt <<-length(combn(sites.count,combi)[1,])

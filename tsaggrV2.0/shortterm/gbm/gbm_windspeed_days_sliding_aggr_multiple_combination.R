@@ -13,11 +13,11 @@ require(forecast)
 require(timeSeries)
 
 sites.count <- 10
-history.length <- 50
+history.length <- 10
 data.len.day <<- 144
 data.len <- history.length * data.len.day
-window.size <- 1440
-train.data.percent <- 0.7
+window.size <- 144
+train.data.percent <- 0.96
 start.date <- '20061112'
 end.date <- '20070101'
 hidden.nodes <<- 10#c(round(window.size/2), window.size,1)
@@ -78,7 +78,7 @@ loaddata <- function(){
 }
 
 aggr.timeseries <- function(vec){
-  vec <- vec[1:(length(vec)-2)]
+  #vec <- vec[1:(length(vec)-2)]
   len <- length(vec)/4
   aggr.indx <-rep(c(seq(1,len)),each=4)
   x <- as.zoo(vec)

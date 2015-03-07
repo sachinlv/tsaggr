@@ -32,7 +32,7 @@ preprocess <<- 'raw' #c('raw','linear', 'expsmooth', 'wma')
 aggr.type <<- 'mean' #c('aggr', 'mean','wmean')
 
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
-table.ip.type <- "specific"#"random"
+table.ip.type <- "random"#c("random","specific")
 
 drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
@@ -208,9 +208,7 @@ predict.pow <- function(aggrno) {
     indx.start <<- indx.start + window.slide
     indx.end <<- indx.start + (window.size * data.len.day)
     count <- count + 1
-    #if(count == 10){
-    #  break
-    #}
+
   }
 
   train.data <<- cbind(train.data, data.train)
