@@ -22,7 +22,7 @@ start.date <- '20061112'
 end.date <- '20070101'
 #mat.size <<- 365
 #slide.count <- mat.size-window.size+1
-filepath <<- '/home/freak/Programming/Thesis/results/history50/random_sites5/mars_shortterm_'
+filepath.generic <<- '/home/freak/Programming/Thesis/results/history50/random_sites5/mars_shortterm_'
 file.name.generic <<- 'mars_shortterm_aggr_combi'
 file.name.denorm.generic <<- 'mars_shortterm_aggr_combi_denorm'
 file.name.aggr.generic <<- 'mars_shortterm_aggr_combi_aggr'
@@ -391,7 +391,7 @@ prediction.error <- function(){
 predict.all.combination <- function(){
   for(aggr in aggr.type.vec){
     aggr.type <<- aggr
-    filepath <<- paste(filepath, aggr, '/', sep="")
+    filepath <<- paste(filepath.generic, aggr, '/', sep="")
 
     loaddata()
     for(combi in seq(1,1)){#sites.count

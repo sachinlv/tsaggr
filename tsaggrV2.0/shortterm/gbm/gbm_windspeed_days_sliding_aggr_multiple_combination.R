@@ -24,7 +24,7 @@ hidden.nodes <<- 10#c(round(window.size/2), window.size,1)
 #mat.size <<- 365
 #slide.count <- mat.size-window.size+1
 
-filepath <<- '/home/freak/Programming/Thesis/results/history50/random_sites5/gbm_shortterm_windspeed_'
+filepath.generic <<- '/home/freak/Programming/Thesis/results/history50/random_sites5/gbm_shortterm_windspeed_'
 file.name.generic <<- 'gbm_shortterm_windspeed_aggr_combi'
 file.name.denorm.generic <<- 'gbm_shortterm_windspeed_aggr_combi_denorm'
 file.name.aggr.generic <<- 'gbm_shortterm_windspeed_aggr_combi_aggr'
@@ -391,7 +391,7 @@ prediction.error <- function(){
 predict.all.combination <- function(){
   for(aggr in aggr.type.vec){
     aggr.type <<- aggr
-    filepath <<- paste(filepath, aggr, '/', sep="")
+    filepath <<- paste(filepath.generic, aggr, '/', sep="")
     loaddata()
     for(combi in seq(10,10)){#sites.count
       if(combi != sites.count){
