@@ -22,17 +22,17 @@ start.date <- '20061112'
 end.date <- '20070101'
 #mat.size <<- 365
 #slide.count <- mat.size-window.size+1
-filepath <<- '/home/freak/Programming/Thesis/results/results/brnn_shortterm_aggr/all/'
+filepath <<- '/home/freak/Programming/Thesis/results/history50/random_sites5/brnn_shortterm_'
 file.name.generic <<- 'brnn_shortterm_aggr_combi'
 file.name.denorm.generic <<- 'brnn_shortterm_aggr_combi_denorm'
 file.name.aggr.generic <<- 'brnn_shortterm_aggr_combi_aggr'
 file.name.aggr.denorm.generic <<- 'brnn_shortterm_aggr_combi_aggr_denorm'
 
+table.ip.type <- "random"#c("random","specific")
 preprocess <<- 'raw' #c('raw','linear', 'expsmooth', 'wma')
-aggr.type <<- 'mean' #c('aggr', 'mean','wmean')
+aggr.type.vec <<- c('aggr', 'mean','wmean')
 
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
-table.ip.type <- "random"#c("random","specific")
 
 drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
@@ -398,37 +398,41 @@ prediction.error <- function(){
 }
 
 predict.all.combination <- function(){
-  loaddata()
-  for(combi in seq(10,10)){#sites.count
-    if(combi != sites.count){
-      aggr.cluster.size <<- combi
-      indxcombicnt <<-length(combn(sites.count,combi)[1,])
-      aggr.mat.size <<- indxcombicnt
+  for(aggr in aggr.type.vec){
+    aggr.type <<- aggr
+    filepath <<- paste(filepath, aggr, '/', sep="")
 
-      aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
-      aggrdata.mean <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
-      aggrdata.wmean <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
+    loaddata()
+    for(combi in seq(10,10)){#sites.count
+      if(combi != sites.count){
+        aggr.cluster.size <<- combi
+        indxcombicnt <<-length(combn(sites.count,combi)[1,])
+        aggr.mat.size <<- indxcombicnt
 
-      indxcombimat <<- as.matrix(combn(sites.count, aggr.cluster.size))
-    }else{
-      aggr.cluster.size <<- combi
-      indxcombicnt <<- 0
-      aggr.mat.size <<- 0
-      aggrdata10 <<- ff(NA, dim=data.len, vmode="double")
-      aggrdata10.mean <<- ff(NA, dim=data.len, vmode="double")
-      aggrdata10.wmean <<- ff(NA, dim=data.len, vmode="double")
+        aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
+        aggrdata.mean <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
+        aggrdata.wmean <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
+
+        indxcombimat <<- as.matrix(combn(sites.count, aggr.cluster.size))
+      }else{
+        aggr.cluster.size <<- combi
+        indxcombicnt <<- 0
+        aggr.mat.size <<- 0
+        aggrdata10 <<- ff(NA, dim=data.len, vmode="double")
+        aggrdata10.mean <<- ff(NA, dim=data.len, vmode="double")
+        aggrdata10.wmean <<- ff(NA, dim=data.len, vmode="double")
+      }
+
+      train.data <<- c()
+      test.data <<- c()
+      test.data.denorm <<- c()
+      output <<- c()
+      output.denorm <<- c()
+
+      predict.for.combination()
+      prediction.error()
     }
-
-    train.data <<- c()
-    test.data <<- c()
-    test.data.denorm <<- c()
-    output <<- c()
-    output.denorm <<- c()
-
-    predict.for.combination()
-    prediction.error()
   }
-
 }
 
 predict.all.combination()
