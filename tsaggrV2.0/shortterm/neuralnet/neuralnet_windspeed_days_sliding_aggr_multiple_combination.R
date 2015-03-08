@@ -24,32 +24,33 @@ hidden.nodes <<- 10#c(round(window.size/2), window.size,1)
 #mat.size <<- 365
 #slide.count <- mat.size-window.size+1
 
-filepath <<- '/home/freak/Programming/Thesis/results/results/neuralnet_shortterm_windspeed_aggr/'
+filepath <<- '/home/freak/Programming/Thesis/results/history50/random_sites5/neuralnet_shortterm_windspeed_'
 file.name.generic <<- 'neuralnet_shortterm_windspeed_aggr_combi'
 file.name.denorm.generic <<- 'neuralnet_shortterm_windspeed_aggr_combi_denorm'
 file.name.aggr.generic <<- 'neuralnet_shortterm_windspeed_aggr_combi_aggr'
 file.name.aggr.denorm.generic <<- 'neuralnet_shortterm_windspeed_aggr_combi_aggr_denorm'
 
-aggr.type <<- 'aggr' #c('aggr', 'mean','wmean')
+table.ip.type <- "random"#"specific"
+aggr.type.vec <<- c('aggr', 'mean','wmean')
 
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 winddata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
-table.ip.type <- "random"#"specific"
+
 
 drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
 
 if(table.ip.type == "random"){
-  t <- c("onshore_SITE_00002",
-         "onshore_SITE_00003",
-         "onshore_SITE_00004",
-         "onshore_SITE_00005",
-         "onshore_SITE_00006",
-         "onshore_SITE_00007",
-         "onshore_SITE_00008",
-         "onshore_SITE_00012",
-         "onshore_SITE_00013",
-         "onshore_SITE_00014")
+  t <- c("onshore_SITE_07726",
+         "onshore_SITE_07791",
+         "onshore_SITE_02148",
+         "onshore_SITE_02797",
+         "onshore_SITE_01351",
+         "onshore_SITE_03986",
+         "onshore_SITE_00324",
+         "onshore_SITE_00342",
+         "onshore_SITE_01562",
+         "onshore_SITE_03069")
   tables <<- data.frame(cbind(numeric(0),t))
 }else{
   t <- c("onshore_SITE_00538",
@@ -130,31 +131,31 @@ predict.pow <- function(aggrno) {
   wind.data.normalized <- c()
   if(aggr.mat.size!=0){
     pow.data.normalized <- switch(aggr.type,
-                              'aggr'={
-                                normalizeData(as.vector(pow.aggrdata[,aggrno]),type="0_1")
-                              },
-                              'mean'={
-                                normalizeData(as.vector(pow.aggrdata.mean[,aggrno]),type="0_1")
-                              },
-                              'wmean'={
-                                normalizeData(as.vector(pow.aggrdata.wmean[,aggrno]),type="0_1")
-                              }
-                         )
+                                  'aggr'={
+                                    normalizeData(as.vector(pow.aggrdata[,aggrno]),type="0_1")
+                                  },
+                                  'mean'={
+                                    normalizeData(as.vector(pow.aggrdata.mean[,aggrno]),type="0_1")
+                                  },
+                                  'wmean'={
+                                    normalizeData(as.vector(pow.aggrdata.wmean[,aggrno]),type="0_1")
+                                  }
+    )
 
     wind.data.normalized <- normalizeData(as.vector(wind.aggrdata[,aggrno]),type="0_1")
   }
   else{
     pow.data.normalized <- switch(aggr.type,
-                              'aggr'={
-                                normalizeData(as.vector(pow.aggrdata10),type="0_1")
-                              },
-                              'mean'={
-                                normalizeData(as.vector(pow.aggrdata10.mean),type="0_1")
-                              },
-                              'wmean'={
-                                normalizeData(as.vector(pow.aggrdata10.wmean),type="0_1")
-                              }
-                        )
+                                  'aggr'={
+                                    normalizeData(as.vector(pow.aggrdata10),type="0_1")
+                                  },
+                                  'mean'={
+                                    normalizeData(as.vector(pow.aggrdata10.mean),type="0_1")
+                                  },
+                                  'wmean'={
+                                    normalizeData(as.vector(pow.aggrdata10.wmean),type="0_1")
+                                  }
+    )
 
     wind.data.normalized <- normalizeData(as.vector(wind.aggrdata10),type="0_1")
   }
@@ -401,37 +402,42 @@ prediction.error <- function(){
 }
 
 predict.all.combination <- function(){
-  loaddata()
-  for(combi in seq(1,10)){#sites.count
-    aggr.cluster.size <<- combi
-    if(combi != sites.count){
-      indxcombicnt <<-length(combn(sites.count,combi)[1,])
-      aggr.mat.size <<- indxcombicnt
+  for(aggr in aggr.type.vec){
+    aggr.type <<- aggr
+    filepath <<- paste(filepath, aggr, '/', sep="")
 
-      pow.aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
-      pow.aggrdata.mean <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
-      pow.aggrdata.wmean <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
-      wind.aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
-
-      indxcombimat <<- as.matrix(combn(sites.count, aggr.cluster.size))
-    }else{
+    loaddata()
+    for(combi in seq(1,10)){#sites.count
       aggr.cluster.size <<- combi
-      indxcombicnt <<- 0
-      aggr.mat.size <<- 0
-      pow.aggrdata10 <<- ff(NA, dim=data.len, vmode="double")
-      pow.aggrdata10.mean <<- ff(NA, dim=data.len, vmode="double")
-      pow.aggrdata10.wmean <<- ff(NA, dim=data.len, vmode="double")
-      wind.aggrdata10 <<- ff(NA, dim=data.len, vmode="double")
+      if(combi != sites.count){
+        indxcombicnt <<-length(combn(sites.count,combi)[1,])
+        aggr.mat.size <<- indxcombicnt
+
+        pow.aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
+        pow.aggrdata.mean <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
+        pow.aggrdata.wmean <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
+        wind.aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
+
+        indxcombimat <<- as.matrix(combn(sites.count, aggr.cluster.size))
+      }else{
+        aggr.cluster.size <<- combi
+        indxcombicnt <<- 0
+        aggr.mat.size <<- 0
+        pow.aggrdata10 <<- ff(NA, dim=data.len, vmode="double")
+        pow.aggrdata10.mean <<- ff(NA, dim=data.len, vmode="double")
+        pow.aggrdata10.wmean <<- ff(NA, dim=data.len, vmode="double")
+        wind.aggrdata10 <<- ff(NA, dim=data.len, vmode="double")
+      }
+
+      train.data <<- c()
+      test.data <<- c()
+      test.data.denorm <<- c()
+      output <<- c()
+      output.denorm <<- c()
+
+      predict.for.combination()
+      prediction.error()
     }
-
-    train.data <<- c()
-    test.data <<- c()
-    test.data.denorm <<- c()
-    output <<- c()
-    output.denorm <<- c()
-
-    predict.for.combination()
-    prediction.error()
   }
 
 }
