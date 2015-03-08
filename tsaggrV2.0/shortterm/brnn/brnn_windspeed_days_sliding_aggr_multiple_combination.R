@@ -18,7 +18,7 @@ data.len.day <<- 144
 data.len <- history.length * data.len.day
 window.size <- 144
 train.data.percent <- 0.96
-start.date <- '20061112'
+start.date <- '20061222'
 end.date <- '20070101'
 hidden.nodes <<- 10#c(round(window.size/2), window.size,1)
 #mat.size <<- 365

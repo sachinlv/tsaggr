@@ -177,10 +177,10 @@ predict.pow <- function(aggrno) {
 
   while(indx.end <= data.len){
     print(paste("Cluster size: ",aggr.cluster.size," AggrNo.: ", aggrno, " Slide No.: ", count+1))
-    data.mat <- matrix(data.set[indx.start:indx.end], nrow=data.len.day, ncol=window.size, byrow=FALSE)
-    colnames(data.mat) <- paste("d",c(1:window.size), sep="")
-    #data.mat <- cbind(numeric(0),as.vector(data.set[indx.start:indx.end]))
-    #colnames(data.mat) <- "d"
+    #data.mat <- matrix(data.set[indx.start:indx.end], nrow=data.len.day, ncol=window.size, byrow=FALSE)
+    #colnames(data.mat) <- paste("d",c(1:window.size), sep="")
+    data.mat <- cbind(numeric(0),as.vector(data.set[indx.start:indx.end]))
+    colnames(data.mat) <- "d"
     window.slide <- 1
     train.dataset.indx <- window.size-window.slide
     test.dataset.indx <- train.dataset.indx + 1
@@ -189,7 +189,7 @@ predict.pow <- function(aggrno) {
     data.mat.test <<- data.frame(d=data.mat[test.dataset.indx:window.size,])
 
     f = as.formula("d ~.")
-    out <<- gbm(f,formula=(d ~.),
+    out <<- gbm(formula=(d ~.),
                 distribution ="gaussian",
                 data=data.mat.train,
                 n.trees=1000,
