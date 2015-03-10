@@ -21,7 +21,8 @@ end.date <- '20070101'
 table.ip.type <- "random"#"specific"
 preprocess <- 'raw'#c('raw', 'linear', 'expsmooth', 'wma')
 err.type.vec <- c('rmse','mse','sd','cor')
-folder.ip.type.vec <- c('aggr','mean','wmean')#c('exp_aggr', 'exp_mean','exp_wmean')
+folder.ip.type.vec <- c('aggr','mean','wmean')
+#cfolder.ip.type.vec <-('exp_aggr', 'exp_mean','exp_wmean')
 
 
 results.file.path <-'/home/freak/Programming/Thesis/results/history50/random_sites5/'
