@@ -11,7 +11,7 @@ data.len <- 7200#52560
 data.len.day <<- 144
 mat.size <<- 365
 window.size <- 10
-sim.meas <- 'pca'
+sim.meas <- 'euclidean'
 plot.file <- 'gbm_shortterm_hclust_aggr_plot.pdf'
 plot.file.path <- '/home/freak/Programming/Thesis/results/plots/clustering/random_sites/'
 train.data.percent <- 0.7
@@ -292,7 +292,7 @@ plot.err.aggr <- function(){
 predict.hclust.aggregates <- function(){
   generate.hierarchial.cluster()
   plot(hc)
-  cut.tree.mat <- cutree(hc,k=1:sites.count)
+   cut.tree.mat <- cutree(hc,k=1:sites.count)
   no.of.cuts <- length(cut.tree.mat[1,])
 
   for(cut.size in seq(1,no.of.cuts)){

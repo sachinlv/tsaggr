@@ -5,9 +5,9 @@ require(ff)
 require(neuralnet)
 require(ftsa)
 
-history.length <- 50
+history.length <- 10
 sites.count <- 10
-data.len <- 7200#52560
+data.len <- 1440#52560
 data.len.day <<- 144
 mat.size <<- 365
 window.size <- 10
