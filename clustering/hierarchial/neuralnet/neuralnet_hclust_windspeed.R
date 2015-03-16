@@ -350,7 +350,7 @@ predict.for.aggrdata <- function(){
 plot.err.aggr <- function(){
   setwd(plot.file.path)
   err.tbl <- data.frame(aggr.err)
-  x <- err.tbl$max.clust.size
+  x <- err.tbl$maxclustsize
   y <- err.tbl$rmse
   plot(y~x)
   dev.copy2pdf(file =paste(plot.file.generic,sim.meas,'.pdf',sep=""))
@@ -363,7 +363,7 @@ predict.hclust.aggregates <- function(){
     cut.tree.mat <- cutree(hc,k=1:sites.count)
     no.of.cuts <- length(cut.tree.mat[1,])
     aggr.err <<- matrix(0,ncol=8,nrow=sites.count,byrow=TRUE, dimnames=NULL)
-    colnames(aggr.err) <- c("cutsize", "maxclustsize","rmse", "mape", "mae", "mse", "sd", "cor")
+    colnames(aggr.err) <<- c("cutsize", "maxclustsize","rmse", "mape", "mae", "mse", "sd", "cor")
 
     for(cut in seq(1,no.of.cuts)){
       cut.size <<- cut
