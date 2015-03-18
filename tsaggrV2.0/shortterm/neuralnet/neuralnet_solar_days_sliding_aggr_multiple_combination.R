@@ -17,13 +17,13 @@ history.length <- 365
 data.len.day <<- 24
 data.len <- history.length * data.len.day
 #window.size <- 24
-fcstart <- 315
+fcstart <- 355
 horizon <- 12
 start.date <- '20060101'
 end.date <- '20061231'
 hidden.nodes <<- 10#c(round(window.size/2), window.size,1)
 
-filepath.generic <<- '/home/freak/Programming/Thesis/results/history50/random_sites/neuralnet_shortterm_solar_'
+filepath.generic <<- '/home/freak/Programming/Thesis/results/results/neuralnet_shortterm_solar_'
 file.name.generic <<- 'neuralnet_shortterm_solar_aggr_combi'
 file.name.denorm.generic <<- 'neuralnet_shortterm_solar_aggr_combi_denorm'
 file.name.aggr.generic <<- 'neuralnet_shortterm_solar_aggr_combi_aggr'
@@ -40,28 +40,28 @@ drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="solar",user="sachin",pass="password")
 
 if(table.ip.type == "random"){
-  t <-   c("solar_random10",
-           "solar_random11",
-           "solar_random12",
-           "solar_random13",
-           "solar_random14",
-           "solar_random15",
-           "solar_random16",
-           "solar_random17",
-           "solar_random18",
-           "solar_random19")
+  t <-   c("solar_random_site10",
+           "solar_random_site11",
+           "solar_random_site12",
+           "solar_random_site13",
+           "solar_random_site14",
+           "solar_random_site15",
+           "solar_random_site16",
+           "solar_random_site17",
+           "solar_random_site18",
+           "solar_random_site19")
   tables <<- data.frame(cbind(numeric(0),t))
 }else{
-  t <-   c("solar_specific10",
-           "solar_specific11",
-           "solar_specific12",
-           "solar_specific13",
-           "solar_specific14",
-           "solar_specific15",
-           "solar_specific16",
-           "solar_specific17",
-           "solar_specific18",
-           "solar_specific19")
+  t <-   c("solar_specific_site10",
+           "solar_specific_site11",
+           "solar_specific_site12",
+           "solar_specific_site13",
+           "solar_specific_site14",
+           "solar_specific_site15",
+           "solar_specific_site16",
+           "solar_specific_site17",
+           "solar_specific_site18",
+           "solar_specific_site19")
 
   tables <<- data.frame(cbind(numeric(0),t))
 }
@@ -84,7 +84,7 @@ gen.aggrdata <- function(){
     for(i in seq(1 ,aggr.mat.size)){
       indx.seq <- indxcombimat[,i]
       pmat <- as.matrix(powdata[,indx.seq])
-      smat <- as.matrix(winddata[,indx.seq])
+      smat <- as.matrix(solardata[,indx.seq])
       col.names <- c(col.names, paste('S',paste(indx.seq, collapse=""), sep=""))
 
       if(length(pmat[1,]) > 1){
@@ -92,7 +92,7 @@ gen.aggrdata <- function(){
         solar.aggrdata[,i] <<- rowWeightedMeans(smat)#rowMeans(wmat)
       }else{
         pow.aggrdata[,i] <<- pmat[,1]
-        solar.aggrdata[,i] <<- wmat[,1]
+        solar.aggrdata[,i] <<- smat[,1]
       }
     }
     colnames(pow.aggrdata) <<- col.names
@@ -100,7 +100,7 @@ gen.aggrdata <- function(){
   else{
     indx.seq <- seq(1,sites.count)
     pow.aggrdata10 <<- rowSums(as.matrix(powdata[,indx.seq]))
-    solar.aggrdata10 <<- rowWeightedMeans(as.matrix(winddata[,indx.seq]))
+    solar.aggrdata10 <<- rowWeightedMeans(as.matrix(solardata[,indx.seq]))
   }
 }
 
@@ -294,7 +294,7 @@ predict.all.combination <- function(){
     filepath <<- paste(filepath.generic, aggr, '/', sep="")
 
     loaddata()
-    for(combi in seq(1,10)){#sites.count
+    for(combi in seq(10,10)){#sites.count
       aggr.cluster.size <<- combi
       if(combi != sites.count){
         indxcombicnt <<-length(combn(sites.count,combi)[1,])
