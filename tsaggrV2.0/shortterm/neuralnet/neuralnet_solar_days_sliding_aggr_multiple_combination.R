@@ -13,12 +13,13 @@ require(forecast)
 require(timeSeries)
 
 sites.count <- 10
-history.length <- 10
+history.length <- 365
 data.len.day <<- 24
 data.len <- history.length * data.len.day
-window.size <- 24
-train.data.percent <- 0.96
-start.date <- '20061222'
+#window.size <- 24
+fcstart <- 315
+horizon <- 12
+start.date <- '20060101'
 end.date <- '20061231'
 hidden.nodes <<- 10#c(round(window.size/2), window.size,1)
 
@@ -122,7 +123,7 @@ predict.pow <- function(aggrno) {
   solar.data.set <- as.vector(solar.data.normalized[,1])
 
   indx.start <<- 1
-  indx.end <<- indx.start + window.size - 1
+  indx.end <<- fcstart * data.len.day#indx.start + window.size - 1
   data.train <<- c()
   data.test <<- c()
   data.out <<- c()
@@ -133,18 +134,19 @@ predict.pow <- function(aggrno) {
     y <- as.vector(pow.data.set[indx.start:indx.end])
     x <- as.vector(solar.data.set[indx.start:indx.end])
     dat <- data.frame(cbind(y,x))
+    current.datalen <- length(y)
 
-    train.indx <- floor(window.size *  train.data.percent)
+    train.indx <-current.datalen - horizon
     test.indx <- train.indx + 1
-    window.slide <- window.size - train.indx
 
     trn.data <- data.frame(dat[1:train.indx,])
-    tst.x <- data.frame(x=dat$x[test.indx:window.size])
-    tst.y <- data.frame(y=dat$y[test.indx:window.size])
-    f = as.formula("y ~ x")
+    tst.x <- data.frame(x=dat$x[test.indx:current.datalen])
+    tst.y <- data.frame(y=dat$y[test.indx:current.datalen])
 
+    f = as.formula("y ~ x")
+    trn.noZeros <- data.frame(subset(trn.data, trn.data[,1]>0))
     out <<- neuralnet(f,
-                      trn.data,
+                      trn.noZeros,
                       hidden=hidden.nodes,
                       rep=2,
                       stepmax = 2000,
@@ -161,18 +163,15 @@ predict.pow <- function(aggrno) {
     )
 
 
-    data.train <<- c(data.train, trn.data$y)
     data.test <<- c(data.test, tst.y$y)
 
     pred <- compute(out, tst.x)$net.result
     data.out <<- c(data.out, pred)
 
-    indx.start <<- indx.start + window.slide
-    indx.end <<- indx.start + window.size
+    indx.end <<- indx.end + horizon
     count <- count + 1
   }
 
-  train.data <<- cbind(train.data, data.train)
   test.data <<-  cbind(test.data, data.test)
   output <<- cbind(output, data.out)
 
