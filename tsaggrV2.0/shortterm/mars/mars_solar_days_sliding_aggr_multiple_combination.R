@@ -1,4 +1,4 @@
-require(brnn)
+require(earth)
 require(RMySQL)
 require(ff)
 require(googleVis)
@@ -24,17 +24,18 @@ hidden.nodes <<- 10#c(round(window.size/2), window.size,1)
 #mat.size <<- 365
 #slide.count <- mat.size-window.size+1
 
-filepath.generic <<- '/home/freak/Programming/Thesis/results/history50/random_sites5/brnn_shortterm_windspeed_'
-file.name.generic <<- 'brnn_shortterm_windspeed_aggr_combi'
-file.name.denorm.generic <<- 'brnn_shortterm_windspeed_aggr_combi_denorm'
-file.name.aggr.generic <<- 'brnn_shortterm_windspeed_aggr_combi_aggr'
-file.name.aggr.denorm.generic <<- 'brnn_shortterm_windspeed_aggr_combi_aggr_denorm'
+filepath.generic <<- '/home/freak/Programming/Thesis/results/history50/random_sites5/mars_shortterm_windspeed_'
+file.name.generic <<- 'mars_shortterm_windspeed_aggr_combi'
+file.name.denorm.generic <<- 'mars_shortterm_windspeed_aggr_combi_denorm'
+file.name.aggr.generic <<- 'mars_shortterm_windspeed_aggr_combi_aggr'
+file.name.aggr.denorm.generic <<- 'mars_shortterm_windspeed_aggr_combi_aggr_denorm'
 
-table.ip.type <- "specific"#"random"
+table.ip.type <- "random"#"random"
 aggr.type.vec <<- c('aggr', 'mean','wmean')
 
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 winddata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
+
 
 drv = dbDriver("MySQL")
 con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
@@ -186,29 +187,26 @@ predict.pow <- function(aggrno, indx) {
     tst.x <- data.frame(x=dat$x[test.indx:window.size])
     tst.y <- data.frame(y=dat$y[test.indx:window.size])
     f = as.formula("y ~ x")
-
-    out <<- brnn(f,
-                 trn.data,
-                 epochs=5,
-                 cores=2,
-                 mu=0.1,
-                 mu_dec=0.1,
-                 mu_max=1e10,
-                 change = 0.001,
-                 neurons=hidden.nodes,
-                 normalize=FALSE,
-                 verbose=FALSE,
-                 Monte_Carlo = FALSE)
+    #After test, with other input parameters found that no parms is better
+    #With parms: size10-0.080724, size1-0.038732
+    #without parms: size10-0.084191, size1-0.038591
+    out <<- earth(f,
+                  data=trn.data,
+                  #penalty=4,
+                  #degree=15,
+                  #fast.k=0
+                  )
 
     data.train <<- c(data.train, trn.data$y)
     data.test <<- c(data.test, tst.y$y)
 
-    pred <- predict.brnn(out , tst.x)
+    pred <- predict(out , tst.x)
     data.out <<- c(data.out, pred)
 
     indx.start <<- indx.start + window.slide
     indx.end <<- indx.start + window.size
     count <- count + 1
+
   }
 
   train.data <<- cbind(train.data, data.train)
@@ -398,7 +396,7 @@ predict.all.combination <- function(){
     filepath <<- paste(filepath.generic, aggr, '/', sep="")
 
     loaddata()
-    for(combi in seq(10,10)){#sites.count
+    for(combi in seq(1,1)){#sites.count
       if(combi != sites.count){
         aggr.cluster.size <<- combi
         indxcombicnt <<-length(combn(sites.count,combi)[1,])

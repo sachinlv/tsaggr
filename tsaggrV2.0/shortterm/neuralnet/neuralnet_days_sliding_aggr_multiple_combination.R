@@ -16,16 +16,16 @@ require(doSNOW)
 
 
 sites.count <- 10
-history.length <- 50
+history.length <- 10
 data.len.day <<- 144
 data.len <- history.length * data.len.day
 window.size <- 10
-train.data.percent <- 0.7
-start.date <- '20061112'
+train.data.percent <- 0.96
+start.date <- '20061222'#'20061112'
 end.date <- '20070101'
 #mat.size <<- 365
 #slide.count <- mat.size-window.size+1
-filepath.generic <<- '/home/freak/Programming/Thesis/results/history50/random_sites5/neuralnet_shortterm_'
+filepath.generic <<- '/home/freak/Programming/Thesis/results/history50/random_sites/neuralnet_shortterm_'
 file.name.generic <<- 'neuralnet_shortterm_aggr_combi'
 file.name.denorm.generic <<- 'neuralnet_shortterm_aggr_combi_denorm'
 file.name.aggr.generic <<- 'neuralnet_shortterm_aggr_combi_aggr'

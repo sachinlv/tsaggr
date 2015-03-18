@@ -1,4 +1,4 @@
-require(brnn)
+require(gbm)
 require(RMySQL)
 require(ff)
 require(googleVis)
@@ -24,11 +24,11 @@ hidden.nodes <<- 10#c(round(window.size/2), window.size,1)
 #mat.size <<- 365
 #slide.count <- mat.size-window.size+1
 
-filepath.generic <<- '/home/freak/Programming/Thesis/results/history50/random_sites5/brnn_shortterm_windspeed_'
-file.name.generic <<- 'brnn_shortterm_windspeed_aggr_combi'
-file.name.denorm.generic <<- 'brnn_shortterm_windspeed_aggr_combi_denorm'
-file.name.aggr.generic <<- 'brnn_shortterm_windspeed_aggr_combi_aggr'
-file.name.aggr.denorm.generic <<- 'brnn_shortterm_windspeed_aggr_combi_aggr_denorm'
+filepath.generic <<- '/home/freak/Programming/Thesis/results/history50/random_sites5/gbm_shortterm_windspeed_'
+file.name.generic <<- 'gbm_shortterm_windspeed_aggr_combi'
+file.name.denorm.generic <<- 'gbm_shortterm_windspeed_aggr_combi_denorm'
+file.name.aggr.generic <<- 'gbm_shortterm_windspeed_aggr_combi_aggr'
+file.name.aggr.denorm.generic <<- 'gbm_shortterm_windspeed_aggr_combi_aggr_denorm'
 
 table.ip.type <- "specific"#"random"
 aggr.type.vec <<- c('aggr', 'mean','wmean')
@@ -64,7 +64,6 @@ if(table.ip.type == "random"){
          "onshore_SITE_00622")
   tables <<- data.frame(cbind(numeric(0),t))
 }
-
 
 loaddata <- function(){
   colindx <- 1
@@ -124,9 +123,7 @@ gen.aggrdata <- function(){
   }
 }
 
-
-
-predict.pow <- function(aggrno, indx) {
+predict.pow <- function(aggrno) {
   pow.data.normalized <- c()
   wind.data.normalized <- c()
   if(aggr.mat.size!=0){
@@ -187,28 +184,27 @@ predict.pow <- function(aggrno, indx) {
     tst.y <- data.frame(y=dat$y[test.indx:window.size])
     f = as.formula("y ~ x")
 
-    out <<- brnn(f,
-                 trn.data,
-                 epochs=5,
-                 cores=2,
-                 mu=0.1,
-                 mu_dec=0.1,
-                 mu_max=1e10,
-                 change = 0.001,
-                 neurons=hidden.nodes,
-                 normalize=FALSE,
-                 verbose=FALSE,
-                 Monte_Carlo = FALSE)
+    out <<- gbm(f,
+                data=trn.data,
+                distribution ="gaussian",
+                n.trees=1000,
+                interaction.depth = 10,
+                n.minobsinnode = 5,
+                shrinkage =  0.008,
+                n.cores=3)
 
     data.train <<- c(data.train, trn.data$y)
     data.test <<- c(data.test, tst.y$y)
 
-    pred <- predict.brnn(out , tst.x)
+    pred <- predict.gbm(out, tst.x, out$n.trees)
     data.out <<- c(data.out, pred)
 
     indx.start <<- indx.start + window.slide
     indx.end <<- indx.start + window.size
     count <- count + 1
+    #if(count == 10){
+    #  break
+    #}
   }
 
   train.data <<- cbind(train.data, data.train)
@@ -389,14 +385,13 @@ prediction.error <- function(){
       write.csv(err.data, file=file.name)
     }
   }
-}
 
+}
 
 predict.all.combination <- function(){
   for(aggr in aggr.type.vec){
     aggr.type <<- aggr
     filepath <<- paste(filepath.generic, aggr, '/', sep="")
-
     loaddata()
     for(combi in seq(10,10)){#sites.count
       if(combi != sites.count){
@@ -410,7 +405,8 @@ predict.all.combination <- function(){
         wind.aggrdata <<- ff(NA, dim=c(data.len, aggr.mat.size), vmode="double")
 
         indxcombimat <<- as.matrix(combn(sites.count, aggr.cluster.size))
-      }else{
+      }
+      else{
         aggr.cluster.size <<- combi
         indxcombicnt <<- 0
         aggr.mat.size <<- 0
