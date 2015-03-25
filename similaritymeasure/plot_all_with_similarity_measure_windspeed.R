@@ -311,7 +311,7 @@ plot.for.algo <- function(){
     f <- formula('y~x')
 
     plot(f,d,
-         main=cor(y,x,method="spearman"),
+         main=cor(y,x),#method="spearman"),
          xlab=paste("distance combination ",i),
          ylab=paste("rmse combination ",i))
 
