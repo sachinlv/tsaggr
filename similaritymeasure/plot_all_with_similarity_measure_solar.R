@@ -59,7 +59,7 @@ if(table.ip.type == "random"){
 }
 
 
-algo.vec <<- c('brnn','gbm','mars')#'neuralnet',
+algo.vec <<- c('neuralnet','brnn','gbm','mars')
 simi.meas.vec <<- c(
   'euclidean',
   'minkowski',
