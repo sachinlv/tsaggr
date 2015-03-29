@@ -311,7 +311,7 @@ plot.for.algo <- function(){
     f <- formula('y~x')
 
     plot(f,d,
-         main=cor(y,x),#method="spearman"),
+         main=cor(y,x),
          xlab=paste("distance combination ",i),
          ylab=paste("rmse combination ",i))
 
@@ -327,7 +327,7 @@ plot.for.algo <- function(){
 }
 
 plot.all <- function(){
-  typ <- 'statistical'
+  typ <- 'physical'
   load.data()
   for(folder in folder.ip.type.vec){
     for(err in err.type.vec){
@@ -336,9 +336,7 @@ plot.all <- function(){
         for(alg in algo.vec){
           setvals(alg,mes,typ,folder,err)
           plot.for.algo()
-          #break
         }
-        #break
       }
     }
   }
