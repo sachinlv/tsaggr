@@ -3,14 +3,36 @@ require(ff)
 require(neuralnet)
 require(brnn)
 require(earth)
+require(TSdist)
+require(forecast)
+require(timeSeries)
+require(TSclust)
+require(corpcor)
+require(MADAM)
+require(Metrics)
+require(ppls)
+require(combinat)
+require(RSNNS)
+require(ftsa)
+require(zoo)
+require(matrixStats)
+require(forecast)
+require(timeSeries)
+
 
 sites.count <- 10
 data.len <-1440 #52560
 powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 winddata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
+start.date <- '20061112'
+end.date <- '20070101'
 
-dist.mat.file.path <-''
-error.path <- ''
+table.ip.type <- 'random'
+dist.mat.file.path <-'/home/freak/Programming/Thesis/results/resultsreview/random_sites/distance/'
+error.path <- '/home/freak/Programming/Thesis/results/resultsreview/random_sites/error/'
+
+drv = dbDriver("MySQL")
+con = dbConnect(drv,host="localhost",dbname="eastwind",user="sachin",pass="password")
 
 if(table.ip.type == "random"){
   t <-   c("onshore_SITE_00002",
@@ -76,7 +98,7 @@ gen.dist.mat <- function(measure){
                                },
                                "fourier"={
                                  fourierDistance(data.mat$c1,data.mat$c2,n=(floor(length(data.mat$c1)/2)+1))
-                               }
+                               },
                                "lm"={
                                  x <- data.frame(x=data.mat$c1)
                                  y <- data.frame(y=data.mat$c2)
@@ -102,7 +124,7 @@ gen.all.distmat <- function(){
     gen.dist.mat(mes)
     result.file <- paste(dist.mat.file.path,
                          'distance_matrix_',
-                         sim.meas,'.csv',sep="")
+                         mes,'.csv',sep="")
     write.table(dist.mat, result.file)
   }
 }
@@ -217,9 +239,9 @@ measure.error <- function(pred,test){
 
 predict.all <- function(){
   for(algo in algo.vec){
-    err.data <- matrix(0,ncol=6,nrow=sites.count,byrow=TRUE, dimnames=NULL)
-    colnames(err.data) <<- c("rmse", "mse", "sd", "bias.sqr", "var")
-    rownames(err.data) <<- paste("S", seq(1,sites.count),sep="")
+    err.data <- matrix(0,ncol=5,nrow=sites.count,byrow=TRUE, dimnames=NULL)
+    colnames(err.data) <- c("rmse", "mse", "sd", "bias.sqr", "var")
+    rownames(err.data) <- paste("S", seq(1,sites.count),sep="")
 
     for(site in seq(1,sites.count)){
       test.data <<- c()
@@ -234,7 +256,9 @@ predict.all <- function(){
 
 
 cal.dist.and.predict <- function(){
-  load.data()
+  loaddata()
   gen.all.distmat()
   predict.all()
 }
+
+cal.dist.and.predict()
