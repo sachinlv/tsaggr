@@ -89,7 +89,7 @@ loaddata <- function(){
 
 gen.dist.mat <- function(measure){
   print(paste("Distance measure: ", measure))
-  
+
   for(i in seq(1,sites.count)){
     for(j in seq(1, sites.count)){
       data.mat <- data.frame(c1=powdata[,i], c2=powdata[,j])
@@ -140,34 +140,34 @@ gen.all.distmat <- function(){
 predict.pow <- function(algo.type, site) {
   pow.data.normalized <-normalizeData(as.vector(powdata[,site]),type="0_1")
   wind.data.normalized <- normalizeData(as.vector(winddata[,site]),type="0_1")
-  
+
   pow.normParms <<- getNormParameters(pow.data.normalized)
   wind.normParms <<- getNormParameters(wind.data.normalized)
   pow.data.set <- as.vector(pow.data.normalized[,1])
   wind.data.set <- as.vector(wind.data.normalized[,1])
-  
+
   indx.start <<- 1
   indx.end <<- indx.start + window.size - 1
   data.train <<- c()
   data.test <<- c()
   data.out <<- c()
   count <- 0
-  
+
   while(indx.end <= data.len){
     print(paste(" SiteNo.: ", site, " Slide No.: ", count+1))
     y <- as.vector(pow.data.set[indx.start:indx.end])
     x <- as.vector(wind.data.set[indx.start:indx.end])
     dat <- data.frame(cbind(y,x))
-    
+
     train.indx <- floor(window.size *  train.data.percent)
     test.indx <- train.indx + 1
     window.slide <- window.size - train.indx
-    
+
     trn.data <- data.frame(dat[1:train.indx,])
     tst.x <- data.frame(x=dat$x[test.indx:window.size])
     tst.y <- data.frame(y=dat$y[test.indx:window.size])
     f = as.formula("y ~ x")
-    
+
     pred  <-  switch(algo.type,
                      "neuralnet"={
                        out <- neuralnet(f,
@@ -219,17 +219,20 @@ predict.pow <- function(algo.type, site) {
                        predict(out , tst.x)
                      }
     )
-    
+
     data.test <<- c(data.test, tst.y$y)
     data.out <<- c(data.out, pred)
-    
+
     indx.start <<- indx.start + window.slide
     indx.end <<- indx.start + window.size
     count <- count + 1
   }
-  
+
   test.data <<-  cbind(test.data, data.test)
   output <<- cbind(output, data.out)
+  test.data.denorm <<- cbind(test.data.denorm, as.vector(denormalizeData(data.test,pow.normParms)))
+  output.denorm <<- cbind(output.denorm, as.vector(denormalizeData(data.out, pow.normParms)))
+
 }
 
 
@@ -239,7 +242,7 @@ measure.error <- function(pred,test){
   err.sd <- sd(pred-test)
   bias.sqr <- (mean(pred) - mean(test))^2
   pred.var <- var(pred)
-  
+
   return(c(err.rmse, err.mse, err.sd, bias.sqr, pred.var))
 }
 
@@ -249,15 +252,25 @@ predict.all <- function(){
     err.data <- matrix(0,ncol=5,nrow=sites.count,byrow=TRUE, dimnames=NULL)
     colnames(err.data) <- c("rmse", "mse", "sd", "bias.sqr", "pred.var")
     rownames(err.data) <- paste("S", seq(1,sites.count),sep="")
-    
+
+    err.data.denorm <- matrix(0,ncol=5,nrow=sites.count,byrow=TRUE, dimnames=NULL)
+    colnames(err.data.denorm) <- c("rmse", "mse", "sd", "bias.sqr", "pred.var")
+    rownames(err.data.denorm) <- paste("S", seq(1,sites.count),sep="")
+
     for(site in seq(1,sites.count)){
       test.data <<- c()
       output <<- c()
+      test.data.denorm <<- c()
+      output.denorm <<- c()
+
       predict.pow(algo,site)
       err.data[site,] <- measure.error(output,test.data)
+      err.data.denorm[site, ] <- measure.error(output.denorm,test.data.denorm)
     }
     error.file <- paste(error.path, algo,".csv", sep="")
     write.table(err.data, error.file)
+    denorm.error.file <- paste(error.path, algo,"_denorm",".csv", sep="")
+    write.table(err.data.denorm, denorm.error.file)
   }
 }
 
