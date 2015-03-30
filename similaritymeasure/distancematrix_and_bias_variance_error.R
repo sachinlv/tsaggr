@@ -231,16 +231,16 @@ measure.error <- function(pred,test){
   err.mse <- error(forecast=pred, true=test,method="mse")
   err.sd <- sd(pred-test)
   bias.sqr <- (mean(pred) - mean(test))^2
-  var <- var()
+  pred.var <- var(pred)
 
-  return(c(err.rmse, err.mse, err.sd, bias.sqr, var))
+  return(c(err.rmse, err.mse, err.sd, bias.sqr, pred.var))
 }
 
 
 predict.all <- function(){
   for(algo in algo.vec){
     err.data <- matrix(0,ncol=5,nrow=sites.count,byrow=TRUE, dimnames=NULL)
-    colnames(err.data) <- c("rmse", "mse", "sd", "bias.sqr", "var")
+    colnames(err.data) <- c("rmse", "mse", "sd", "bias.sqr", "pred.var")
     rownames(err.data) <- paste("S", seq(1,sites.count),sep="")
 
     for(site in seq(1,sites.count)){
