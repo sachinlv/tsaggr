@@ -3,6 +3,7 @@ require(ff)
 require(neuralnet)
 require(brnn)
 require(earth)
+require(gbm)
 require(TSdist)
 require(forecast)
 require(timeSeries)
@@ -19,13 +20,17 @@ require(matrixStats)
 require(forecast)
 require(timeSeries)
 
-
 sites.count <- 10
-data.len <-1440 #52560
-powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
-winddata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
+history.length <- 10
+data.len.day <<- 144
+data.len <- history.length * data.len.day
+window.size <- 144
+train.data.percent <- 0.96
 start.date <- '20061112'
 end.date <- '20070101'
+hidden.nodes <<- 10
+powdata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
+winddata <<- ff(NA, dim=c(data.len, sites.count), vmode="double")
 
 table.ip.type <- 'random'
 dist.mat.file.path <-'/home/freak/Programming/Thesis/results/resultsreview/random_sites/distance/'
@@ -83,6 +88,8 @@ loaddata <- function(){
 
 
 gen.dist.mat <- function(measure){
+  print(paste("Distance measure: ", measure))
+  
   for(i in seq(1,sites.count)){
     for(j in seq(1, sites.count)){
       data.mat <- data.frame(c1=powdata[,i], c2=powdata[,j])
@@ -133,94 +140,94 @@ gen.all.distmat <- function(){
 predict.pow <- function(algo.type, site) {
   pow.data.normalized <-normalizeData(as.vector(powdata[,site]),type="0_1")
   wind.data.normalized <- normalizeData(as.vector(winddata[,site]),type="0_1")
-
+  
   pow.normParms <<- getNormParameters(pow.data.normalized)
   wind.normParms <<- getNormParameters(wind.data.normalized)
   pow.data.set <- as.vector(pow.data.normalized[,1])
   wind.data.set <- as.vector(wind.data.normalized[,1])
-
+  
   indx.start <<- 1
   indx.end <<- indx.start + window.size - 1
   data.train <<- c()
   data.test <<- c()
   data.out <<- c()
   count <- 0
-
+  
   while(indx.end <= data.len){
-    print(paste("Cluster size: ",aggr.cluster.size," AggrNo.: ", aggrno, " Slide No.: ", count+1))
+    print(paste(" SiteNo.: ", site, " Slide No.: ", count+1))
     y <- as.vector(pow.data.set[indx.start:indx.end])
     x <- as.vector(wind.data.set[indx.start:indx.end])
     dat <- data.frame(cbind(y,x))
-
+    
     train.indx <- floor(window.size *  train.data.percent)
     test.indx <- train.indx + 1
     window.slide <- window.size - train.indx
-
+    
     trn.data <- data.frame(dat[1:train.indx,])
     tst.x <- data.frame(x=dat$x[test.indx:window.size])
     tst.y <- data.frame(y=dat$y[test.indx:window.size])
     f = as.formula("y ~ x")
-
+    
     pred  <-  switch(algo.type,
-                   "neuralnet"={
-                     out <- neuralnet(f,
-                                       trn.data,
-                                       hidden=hidden.nodes,
-                                       rep=2,
-                                       stepmax = 2000,
-                                       threshold=0.2,
-                                       learningrate=1,
-                                       algorithm="rprop+", #'rprop-', 'sag', 'slr'
-                                       startweights=NULL,
-                                       lifesign="none",
-                                       err.fct="sse",
-                                       act.fct="logistic",
-                                       exclude = NULL,
-                                       constant.weights = NULL,
-                                       linear.output=TRUE)
-                     compute(out, tst.x)$net.result
-                   },
-                   "gbm"={
-                     out <- gbm(f,
-                                 data=trn.data,
-                                 distribution ="gaussian",
-                                 n.trees=1000,
-                                 interaction.depth = 10,
-                                 n.minobsinnode = 5,
-                                 shrinkage =  0.008,
-                                 n.cores=3)
-                     predict.gbm(out, tst.x, out$n.trees)
-                   },
-                   "brnn"={
-                     out <- brnn(f,
-                                  trn.data,
-                                  epochs=5,
-                                  cores=2,
-                                  mu=0.1,
-                                  mu_dec=0.1,
-                                  mu_max=1e10,
-                                  change = 0.001,
-                                  neurons=hidden.nodes,
-                                  normalize=FALSE,
-                                  verbose=FALSE,
-                                  Monte_Carlo = FALSE)
-                     predict.brnn(out , tst.x)
-                   },
-                   "mars"={
-                     out <<- earth(f,
-                                   data=trn.data)
-                     predict(out , tst.x)
-                   }
-            )
-
+                     "neuralnet"={
+                       out <- neuralnet(f,
+                                        trn.data,
+                                        hidden=hidden.nodes,
+                                        rep=2,
+                                        stepmax = 2000,
+                                        threshold=0.2,
+                                        learningrate=1,
+                                        algorithm="rprop+", #'rprop-', 'sag', 'slr'
+                                        startweights=NULL,
+                                        lifesign="none",
+                                        err.fct="sse",
+                                        act.fct="logistic",
+                                        exclude = NULL,
+                                        constant.weights = NULL,
+                                        linear.output=TRUE)
+                       compute(out, tst.x)$net.result
+                     },
+                     "gbm"={
+                       out <- gbm(f,
+                                  data=trn.data,
+                                  distribution ="gaussian",
+                                  n.trees=1000,
+                                  interaction.depth = 10,
+                                  n.minobsinnode = 5,
+                                  shrinkage =  0.008,
+                                  n.cores=3)
+                       predict.gbm(out, tst.x, out$n.trees)
+                     },
+                     "brnn"={
+                       out <- brnn(f,
+                                   trn.data,
+                                   epochs=5,
+                                   cores=2,
+                                   mu=0.1,
+                                   mu_dec=0.1,
+                                   mu_max=1e10,
+                                   change = 0.001,
+                                   neurons=hidden.nodes,
+                                   normalize=FALSE,
+                                   verbose=FALSE,
+                                   Monte_Carlo = FALSE)
+                       predict.brnn(out , tst.x)
+                     },
+                     "mars"={
+                       out <<- earth(f,
+                                     data=trn.data)
+                       predict(out , tst.x)
+                     }
+    )
+    
     data.test <<- c(data.test, tst.y$y)
     data.out <<- c(data.out, pred)
-
+    
     indx.start <<- indx.start + window.slide
     indx.end <<- indx.start + window.size
     count <- count + 1
   }
-
+  
   test.data <<-  cbind(test.data, data.test)
   output <<- cbind(output, data.out)
 }
@@ -232,7 +239,7 @@ measure.error <- function(pred,test){
   err.sd <- sd(pred-test)
   bias.sqr <- (mean(pred) - mean(test))^2
   pred.var <- var(pred)
-
+  
   return(c(err.rmse, err.mse, err.sd, bias.sqr, pred.var))
 }
 
@@ -242,7 +249,7 @@ predict.all <- function(){
     err.data <- matrix(0,ncol=5,nrow=sites.count,byrow=TRUE, dimnames=NULL)
     colnames(err.data) <- c("rmse", "mse", "sd", "bias.sqr", "pred.var")
     rownames(err.data) <- paste("S", seq(1,sites.count),sep="")
-
+    
     for(site in seq(1,sites.count)){
       test.data <<- c()
       output <<- c()
@@ -262,3 +269,4 @@ cal.dist.and.predict <- function(){
 }
 
 cal.dist.and.predict()
+
