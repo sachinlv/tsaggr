@@ -22,8 +22,8 @@ table.ip.type <- "random"#c("random","specific")
 err.type.vec <- c('rmse','mse','sd','cor')
 folder.ip.type.vec <- c('aggr','mean','wmean')
 
-results.file.path <-'/home/freak/Programming/Thesis/results/history50/random_sites/'
-plot.file.path.all <- '/home/freak/Programming/Thesis/plots/physical/history10/random_sites/'
+results.file.path <-'/home/freak/Dropbox/results2/aggregation/history10/random_sites/'
+plot.file.path.all <- '/home/freak/Programming/Thesis/results/plots/history10/random_sites/'
 
 if(table.ip.type == "random"){
   t <-   c("onshore_SITE_00002",
@@ -171,7 +171,7 @@ gen.dist.mat <- function(measure){
                                  manhattanDistance(data.mat$c1,data.mat$c2)
                                },
                                "minkowski"={
-                                 minkowskiDistance(data.mat$c1,data.mat$c2,2)
+                                 minkowskiDistance(data.mat$c1,data.mat$c2,3)
                                },
                                "fourier"={
                                  fourierDistance(data.mat$c1,data.mat$c2,n=(floor(length(data.mat$c1)/2)+1))
@@ -289,37 +289,40 @@ get.err.dist.data <- function(){
   }
 
   #err <- normalizeData(as.vector(plotdata$err),type="0_1")
-  data.to.plot <- data.frame(err.rmse=plotdata$err, dist=avg.dist)
+  data.to.plot <- data.frame(error=plotdata$err, dist=avg.dist)
   return(data.to.plot)
 }
 
 plot.for.algo <- function(){
-  par(mfrow=c(5,2))
-  par(mar=c(0.5, 4.5, 0.5, 0.5))
-  plot.window(xlim=c(0,300),ylim=c(0,1),asp=1)
+  par(mfrow=c(5,2),
+      cex=0.4, cex.axis=1.0, cex.lab=1.5, cex.main=1.5, cex.sub=1.0,
+      font.lab=8, lab=c(10,10,10),
+      oma=c(2,2,2,2),
+      mar=c(5.1,4.1,4.1,2.1))
+  #par(mar=c(0.5, 4.5, 0.5, 0.5))
+  plot.window(xlim=c(0,400),ylim=c(0,1),asp=1)
 
   #plot1-10
   setwd(file.path.all)
   for(i in seq(1,sites.count)){
     load.err.data(i)
     data.to.plot <- get.err.dist.data()
-    #testing <<- data.to.plot##remove this line later
 
-    y <- data.to.plot$err.rmse
+    y <- data.to.plot$error
     x <- data.to.plot$dist
     d <- data.frame(y,x)
     f <- formula('y~x')
 
     plot(f,d,
-         main=cor(y,x),
-         xlab=paste("distance combination ",i),
-         ylab=paste("rmse combination ",i))
+         main=paste("Cluster Size=",i,", " ,"Correlation=",cor(y,x)),
+         xlab="mean distance",
+         ylab=err.type)
 
-    dev.copy2pdf(file =plot.file)
+    dev.copy2pdf(file=plot.file, height=12, width=9)
     #dev.off()
     combination.result <<- as.character(combination.result)
     combination.result <<- gsub("0","10",combination.result)
-    df <- c(paste("RMSE threshold", as.character(threshold.rmse)))
+    df <- c(paste(err.type," threshold", as.character(threshold.rmse)))
     df <- c(df,paste("Similarity Threshold",as.character(threshold.dist)))
     df <- c(df, combination.result)
     write.table(df, result.file)
@@ -336,9 +339,13 @@ plot.all <- function(){
         for(alg in algo.vec){
           setvals(alg,mes,typ,folder,err)
           plot.for.algo()
+          break
         }
+        break
       }
+      break
     }
+    break
   }
 }
 
