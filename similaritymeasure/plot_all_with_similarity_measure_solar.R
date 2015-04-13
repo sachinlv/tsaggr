@@ -172,7 +172,7 @@ gen.dist.mat <- function(measure){
                                  manhattanDistance(data.mat$c1,data.mat$c2)
                                },
                                "minkowski"={
-                                 minkowskiDistance(data.mat$c1,data.mat$c2,2)
+                                 minkowskiDistance(data.mat$c1,data.mat$c2,3)
                                },
                                "fourier"={
                                  fourierDistance(data.mat$c1,data.mat$c2,n=(floor(length(data.mat$c1)/2)+1))
