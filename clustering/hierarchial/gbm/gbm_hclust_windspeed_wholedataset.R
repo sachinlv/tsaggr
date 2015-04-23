@@ -224,7 +224,7 @@ predict.hclust.aggregates <- function(){
     cut.tree.mat <- cutree(hc,k=1:sites.count)
     #no.of.cuts <- length(cut.tree.mat[1,])
     no.of.cuts <- c(1,10,20,30,40,50,60,70,80,90,100)
-    aggr.err <<- matrix(0,ncol=9,nrow=sites.count,byrow=TRUE, dimnames=NULL)
+    aggr.err <<- matrix(0,ncol=9,nrow=len(no.of.cuts),byrow=TRUE, dimnames=NULL)
     colnames(aggr.err) <<- c("cutsize", "maxclustsize","rmse", "mape", "mae", "mse", "sd", "cor", "exectime")
 
     for(cut in no.of.cuts){
