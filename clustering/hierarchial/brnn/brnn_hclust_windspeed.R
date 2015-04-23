@@ -18,23 +18,24 @@ hidden.nodes <<- 10
 
 simi.meas.vec <<- c(
   'euclidean',
-  'minkowski',
-  'manhattan',
+  #'minkowski',
+  #'manhattan',
   'fourier',
-  'correlation',
-  'pca',
-  'coord',
-  'lm',
-  'weuclid',
-  'maj',
-  'shrinkage',
-  'pdist')
+  #'correlation',
+  'pca'
+  #'coord',
+  #'lm',
+  #'weuclid',
+  #'maj',
+  #'shrinkage',
+  #'pdist'
+)
 
 plot.file.generic <- 'brnn_shortterm_windspeed_hclust_'
-plot.file.path <- '/home/freak/Programming/Thesis/results/plots/history10/specific_sites/clustering/'
+plot.file.path <- '/home/freak/Programming/Thesis/plots/wind/clustering/physical/history10/random_sites/brnn/'
 file.name.generic <<-'brnn_shortterm_hclust'
 forecast.aggr.err.file <<- 'brnn_shortterm_hclust_aggr.csv'
-filepath.generic <<- '/home/freak/Programming/Thesis/results/results/brnn_shortterm_hclust/'
+filepath.generic <<- '/home/freak/Programming/Thesis/results/clustering/history10/random_sites/gbm_shortterm_windspeed_hclust/'
 
 table.ip.type <- "random"#c("random","specific")
 powdata <<- matrix(0, nrow=data.len, ncol=sites.count)
@@ -317,12 +318,12 @@ prediction.error <- function(){
     }
 
 
-    err.rmse <- error(forecast=pred, true=test,method="rmse")
-    err.mape <- error(forecast=pred, true=test,method="mape")
-    err.mae <- error(forecast=pred, true=test,method="mae")
-    err.mse <- error(forecast=pred, true=test,method="mse")
-    err.sd <- sd(pred-test)# need to normalize it to installed power
-    err.cor <- cor(pred,test)
+    err.rmse <- error(forecast=output.sum, true=test.data.sum,method="rmse")
+    err.mape <- error(forecast=output.sum, true=test.data.sum,method="mape")
+    err.mae <- error(forecast=output.sum, true=test.data.sum,method="mae")
+    err.mse <- error(forecast=output.sum, true=test.data.sum,method="mse")
+    err.sd <- sd(output.sum-test.data.sum)# need to normalize it to installed power
+    err.cor <- cor(output.sum,test.data.sum)
     err.row <- c(cut.size,max.clust.size,
                  err.rmse,err.mape,err.mae,err.mse,err.sd,err.cor)
     aggr.err[cut.size,] <<- err.row

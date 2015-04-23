@@ -18,25 +18,27 @@ hidden.nodes <<- 10
 
 simi.meas.vec <<- c(
   'euclidean',
-  'minkowski',
-  'manhattan',
+  #'minkowski',
+  #'manhattan',
   'fourier',
-  'correlation',
-  'pca',
-  'coord',
-  'lm',
-  'weuclid',
-  'maj',
-  'shrinkage',
-  'pdist')
+  #'correlation',
+  'pca'
+  #'coord',
+  #'lm',
+  #'weuclid',
+  #'maj',
+  #'shrinkage',
+  #'pdist'
+)
 
 plot.file.generic <- 'gbm_shortterm_windspeed_hclust_'
-plot.file.path <- '/home/freak/Programming/Thesis/results/plots/history10/specific_sites/clustering/'
+plot.file.path <- '/home/freak/Programming/Thesis/plots/wind/clustering/physical/history10/random_sites/gbm/'
+
 file.name.generic <<-'gbm_shortterm_hclust'
 forecast.aggr.err.file <<- 'gbm_shortterm_hclust_aggr.csv'
-filepath.generic <<- '/home/freak/Programming/Thesis/results/results/gbm_shortterm_hclust/'
+filepath.generic <<- '/home/freak/Programming/Thesis/results/clustering/history10/random_sites/gbm_shortterm_windspeed_hclust/'
 
-table.ip.type <- "random"#c("random","specific")
+table.ip.type <- "specific"#c("random","specific")
 powdata <<- matrix(0, nrow=data.len, ncol=sites.count)
 winddata <<- matrix(0, nrow=data.len, ncol=sites.count)
 dist.mat <<- matrix(0, nrow=sites.count, ncol=sites.count)
@@ -45,28 +47,28 @@ drv <- dbDriver("MySQL")
 con <- dbConnect(drv, host="localhost", dbname="eastwind", user="sachin", pass="password")
 
 if(table.ip.type == "random"){
-  t <- c('onshore_SITE_00002',
-         'onshore_SITE_00003',
-         'onshore_SITE_00004',
-         'onshore_SITE_00005',
-         'onshore_SITE_00006',
-         'onshore_SITE_00007',
-         'onshore_SITE_00008',
-         'onshore_SITE_00012',
-         'onshore_SITE_00013',
-         'onshore_SITE_00014')
+  t <-   c("onshore_SITE_07726",
+           "onshore_SITE_07791",
+           "onshore_SITE_02148",
+           "onshore_SITE_02797",
+           "onshore_SITE_01351",
+           "onshore_SITE_03986",
+           "onshore_SITE_00324",
+           "onshore_SITE_00342",
+           "onshore_SITE_01562",
+           "onshore_SITE_03069")
   tables <<- data.frame(cbind(numeric(0),t))
 }else{
-  t <- c("onshore_SITE_00538",
-         "onshore_SITE_00366",
-         "onshore_SITE_00623",
-         "onshore_SITE_00418",
-         "onshore_SITE_00627",
-         "onshore_SITE_00532",
-         "onshore_SITE_00499",
-         "onshore_SITE_00571",
-         "onshore_SITE_03247",
-         "onshore_SITE_00622")
+  t <- c("onshore_SITE_04468",
+         "onshore_SITE_04476",
+         "onshore_SITE_04665",
+         "onshore_SITE_04640",
+         "onshore_SITE_04290",
+         "onshore_SITE_04181",
+         "onshore_SITE_04607",
+         "onshore_SITE_04247",
+         "onshore_SITE_04605",
+         "onshore_SITE_04094")
   tables <<- data.frame(cbind(numeric(0),t))
 }
 
@@ -313,12 +315,12 @@ prediction.error <- function(){
     }
 
 
-    err.rmse <- error(forecast=pred, true=test,method="rmse")
-    err.mape <- error(forecast=pred, true=test,method="mape")
-    err.mae <- error(forecast=pred, true=test,method="mae")
-    err.mse <- error(forecast=pred, true=test,method="mse")
-    err.sd <- sd(pred-test)# need to normalize it to installed power
-    err.cor <- cor(pred,test)
+    err.rmse <- error(forecast=output.sum, true=test.data.sum,method="rmse")
+    err.mape <- error(forecast=output.sum, true=test.data.sum,method="mape")
+    err.mae <- error(forecast=output.sum, true=test.data.sum,method="mae")
+    err.mse <- error(forecast=output.sum, true=test.data.sum,method="mse")
+    err.sd <- sd(output.sum-test.data.sum)# need to normalize it to installed power
+    err.cor <- cor(output.sum,test.data.sum)
     err.row <- c(cut.size,max.clust.size,
                  err.rmse,err.mape,err.mae,err.mse,err.sd,err.cor)
     aggr.err[cut.size,] <<- err.row

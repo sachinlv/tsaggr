@@ -18,25 +18,25 @@ hidden.nodes <<- 10
 
 simi.meas.vec <<- c(
   'euclidean',
-  'minkowski',
-  'manhattan',
+  #'minkowski',
+  #'manhattan',
   'fourier',
-  'correlation',
+  #'correlation',
   'pca',
-  'coord',
-  'lm',
-  'weuclid',
-  'maj',
-  'shrinkage',
-  'pdist')
-
+  #'coord',
+  #'lm',
+  #'weuclid',
+  #'maj',
+  #'shrinkage',
+  #'pdist'
+)
 plot.file.generic <- 'mars_shortterm_windspeed_hclust_'
-plot.file.path <- '/home/freak/Programming/Thesis/results/plots/history10/specific_sites/clustering/'
+plot.file.path <- '/home/freak/Programming/Thesis/plots/wind/clustering/physical/history10/random_sites/mars/'
 file.name.generic <<-'mars_shortterm_hclust'
 forecast.aggr.err.file <<- 'mars_shortterm_hclust_aggr.csv'
-filepath.generic <<- '/home/freak/Programming/Thesis/results/results/mars_shortterm_hclust/'
+filepath.generic <<- '/home/freak/Programming/Thesis/results/clustering/history10/random_sites/mars_shortterm_windspeed_hclust/'
 
-table.ip.type <- "random"#c("random","specific")
+table.ip.type <- "specific"#c("random","specific")
 powdata <<- matrix(0, nrow=data.len, ncol=sites.count)
 winddata <<- matrix(0, nrow=data.len, ncol=sites.count)
 dist.mat <<- matrix(0, nrow=sites.count, ncol=sites.count)
@@ -57,16 +57,16 @@ if(table.ip.type == "random"){
          'onshore_SITE_00014')
   tables <<- data.frame(cbind(numeric(0),t))
 }else{
-  t <- c("onshore_SITE_00538",
-         "onshore_SITE_00366",
-         "onshore_SITE_00623",
-         "onshore_SITE_00418",
-         "onshore_SITE_00627",
-         "onshore_SITE_00532",
-         "onshore_SITE_00499",
-         "onshore_SITE_00571",
-         "onshore_SITE_03247",
-         "onshore_SITE_00622")
+  t <- c("onshore_SITE_04468",
+         "onshore_SITE_04476",
+         "onshore_SITE_04665",
+         "onshore_SITE_04640",
+         "onshore_SITE_04290",
+         "onshore_SITE_04181",
+         "onshore_SITE_04607",
+         "onshore_SITE_04247",
+         "onshore_SITE_04605",
+         "onshore_SITE_04094")
   tables <<- data.frame(cbind(numeric(0),t))
 }
 
@@ -249,7 +249,8 @@ predict.pow <- function(aggrno) {
                   data=trn.data,
                   #penalty=4,
                   #degree=15,
-                  #fast.k=0)
+                  #fast.k=0
+    )
 
     data.train <<- c(data.train, trn.data$y)
     data.test <<- c(data.test, tst.y$y)
@@ -310,12 +311,12 @@ prediction.error <- function(){
     }
 
 
-    err.rmse <- error(forecast=pred, true=test,method="rmse")
-    err.mape <- error(forecast=pred, true=test,method="mape")
-    err.mae <- error(forecast=pred, true=test,method="mae")
-    err.mse <- error(forecast=pred, true=test,method="mse")
-    err.sd <- sd(pred-test)# need to normalize it to installed power
-    err.cor <- cor(pred,test)
+    err.rmse <- error(forecast=output.sum, true=test.data.sum,method="rmse")
+    err.mape <- error(forecast=output.sum, true=test.data.sum,method="mape")
+    err.mae <- error(forecast=output.sum, true=test.data.sum,method="mae")
+    err.mse <- error(forecast=output.sum, true=test.data.sum,method="mse")
+    err.sd <- sd(output.sum-test.data.sum)# need to normalize it to installed power
+    err.cor <- cor(output.sum,test.data.sum)
     err.row <- c(cut.size,max.clust.size,
                  err.rmse,err.mape,err.mae,err.mse,err.sd,err.cor)
     aggr.err[cut.size,] <<- err.row
@@ -365,7 +366,7 @@ predict.hclust.aggregates <- function(){
     filepath <- paste(filepath.generic,sim.meas,'/',sep="")
     setwd(filepath)
     write.csv(aggr.err,forecast.aggr.err.file)
-    plot.err.aggr()
+    #plot.err.aggr()
   }
 }
 
