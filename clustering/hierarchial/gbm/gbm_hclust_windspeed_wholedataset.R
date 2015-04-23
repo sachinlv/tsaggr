@@ -158,7 +158,7 @@ measure.error <- function(pred,test){
 }
 
 
-prediction.error <- function(){
+prediction.error <- function(time.taken){
   parm.count <- 7
   file.name <- paste(file.name.generic,cut.size,'.csv',sep="")
   setwd(filepath.generic)
@@ -186,7 +186,7 @@ prediction.error <- function(){
       output.sum <<- output.denorm[,1]
       output.sum <<- normalizeData(output.sum, type="0_1")
     }
-    err.row <- c(cut.size,max.clust.size, measure.error(output.sum,test.data.sum))
+    err.row <- c(cut.size,max.clust.size, measure.error(output.sum,test.data.sum),time.taken)
     aggr.err[cut.size,] <<- err.row
   }
 }
@@ -198,10 +198,14 @@ predict.for.aggrdata <- function(){
   output <<- c()
   output.denorm <<- c()
 
+  time.start <- Sys.time()
   for(aggr.nr in seq(1,cut.size)){
     predict.pow(aggr.nr)
   }
-  prediction.error()
+  time.end <- Sys.time()
+  time.taken <- as.numeric(time.end - time.start, units="secs")
+
+  prediction.error(time.taken)
 }
 
 plot.err.aggr <- function(){
@@ -220,8 +224,8 @@ predict.hclust.aggregates <- function(){
     cut.tree.mat <- cutree(hc,k=1:sites.count)
     #no.of.cuts <- length(cut.tree.mat[1,])
     no.of.cuts <- c(1,10,20,30,40,50,60,70,80,90,100)
-    aggr.err <<- matrix(0,ncol=8,nrow=sites.count,byrow=TRUE, dimnames=NULL)
-    colnames(aggr.err) <<- c("cutsize", "maxclustsize","rmse", "mape", "mae", "mse", "sd", "cor")
+    aggr.err <<- matrix(0,ncol=9,nrow=sites.count,byrow=TRUE, dimnames=NULL)
+    colnames(aggr.err) <<- c("cutsize", "maxclustsize","rmse", "mape", "mae", "mse", "sd", "cor", "exectime")
 
     for(cut in no.of.cuts){
       cut.size <<- cut
