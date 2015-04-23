@@ -21,7 +21,7 @@ plot.file.path <- '/home/freak/Programming/Thesis/results/plots/hclust/wholedata
 file.name.generic <<-'gbm_shortterm_hclust'
 forecast.aggr.err.file <<- 'gbm_shortterm_hclust_aggr.csv'
 filepath.generic <<- '/home/freak/Programming/Thesis/results/results/gbm_wholedataset/'
-
+sim.meas <<- "euclidean"
 powdata <<- matrix(0, nrow=data.len, ncol=sites.count)
 winddata <<- matrix(0, nrow=data.len, ncol=sites.count)
 dist.mat <<- matrix(0, nrow=sites.count, ncol=sites.count)
@@ -39,7 +39,7 @@ loaddata <- function(){
   colindx <- 1
   for(indx in seq(1,sites.count)){
     print(paste("Loading from table :: ", tabls[indx]))
-    query <- paste(" select pow,spd from ", tab, " WHERE (mesdt >= ",start.date," && mesdt < ",end.date,") LIMIT ", data.len, ";")
+    query <- paste(" select pow,spd from ", tabls[indx], " WHERE (mesdt >= ",start.date," && mesdt < ",end.date,") LIMIT ", data.len, ";")
     data06 <- data.frame(dbGetQuery(con,statement=query), check.names=FALSE)
     powdata[,indx] <<- as.double(data06[,1])
     winddata[,indx] <<- as.double(data06[,2])
@@ -169,7 +169,7 @@ prediction.error <- function(time.taken){
     col.names <- colnames(aggr.mat)
     for(clust in seq(1:cut.size)){
       site.name <- col.names[clust]
-      err.data[clust,] <<- measure.error(output[,clust], test.data[,clust])
+      err.data[clust,] <<- c(site.name, measure.error(output[,clust], test.data[,clust]))
     }
     write.csv(err.data, file=file.name)
 
@@ -218,8 +218,8 @@ plot.err.aggr <- function(){
 }
 
 predict.hclust.aggregates <- function(){
-  for(sim in simi.meas.vec){
-    sim.meas <<- sim
+  #for(sim in simi.meas.vec){
+    #sim.meas <<- sim
     generate.hierarchial.cluster()
     cut.tree.mat <- cutree(hc,k=1:sites.count)
     #no.of.cuts <- length(cut.tree.mat[1,])
@@ -240,7 +240,7 @@ predict.hclust.aggregates <- function(){
     setwd(filepath)
     write.csv(aggr.err,forecast.aggr.err.file)
     plot.err.aggr()
-  }
+  #}
 }
 
 predict.hclust.aggregates()
