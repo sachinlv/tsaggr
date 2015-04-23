@@ -29,14 +29,13 @@ dist.mat <<- matrix(0, nrow=sites.count, ncol=sites.count)
 drv <- dbDriver("MySQL")
 con <- dbConnect(drv, host="localhost", dbname="eastwind", user="sachin", pass="password")
 
-tbllist_qry = paste("SELECT TABLE_NAME FROM information_schema.TABLES ",
-                    "WHERE TABLE_SCHEMA = 'eastwind' AND",
-                    "TABLE_NAME LIKE 'onshore_SITE_%' LIMIT 100;")
-tabls <- data.frame(dbGetQuery(con,statement=tbllist_qry), check.names=FALSE)
-tabls <- tabls[,1]
-
-
 loaddata <- function(){
+  tbllist_qry = paste("SELECT TABLE_NAME FROM information_schema.TABLES ",
+                      "WHERE TABLE_SCHEMA = 'eastwind' AND",
+                      "TABLE_NAME LIKE 'onshore_SITE_%' LIMIT 100;")
+  tabls <- data.frame(dbGetQuery(con,statement=tbllist_qry), check.names=FALSE)
+  tabls <- tabls[,1]
+
   colindx <- 1
   for(indx in seq(1,sites.count)){
     print(paste("Loading from table :: ", tabls[indx]))
@@ -187,7 +186,7 @@ prediction.error <- function(){
       output.sum <<- output.denorm[,1]
       output.sum <<- normalizeData(output.sum, type="0_1")
     }
-    err.row <- c(cut.size,max.clust.size, measure.error(pred,test))
+    err.row <- c(cut.size,max.clust.size, measure.error(output.sum,test.data.sum))
     aggr.err[cut.size,] <<- err.row
   }
 }
@@ -219,11 +218,12 @@ predict.hclust.aggregates <- function(){
     sim.meas <<- sim
     generate.hierarchial.cluster()
     cut.tree.mat <- cutree(hc,k=1:sites.count)
-    no.of.cuts <- length(cut.tree.mat[1,])
+    #no.of.cuts <- length(cut.tree.mat[1,])
+    no.of.cuts <- c(1,10,20,30,40,50,60,70,80,90,100)
     aggr.err <<- matrix(0,ncol=8,nrow=sites.count,byrow=TRUE, dimnames=NULL)
     colnames(aggr.err) <<- c("cutsize", "maxclustsize","rmse", "mape", "mae", "mse", "sd", "cor")
 
-    for(cut in seq(1,no.of.cuts)){
+    for(cut in no.of.cuts){
       cut.size <<- cut
       cut.group.vec <- cut.tree.mat[,cut]
       pow.aggrdata <<- ff(NA, dim=c(data.len, cut), vmode="double")
